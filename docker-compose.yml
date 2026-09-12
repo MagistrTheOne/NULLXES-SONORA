@@ -1,0 +1,84 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: sonora
+      POSTGRES_PASSWORD: sonora
+      POSTGRES_DB: sonora
+    ports:
+      - "5432:5432"
+    volumes:
+      - sonora_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sonora -d sonora"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    environment:
+      DATABASE_URL: postgresql+asyncpg://sonora:sonora@postgres:5432/sonora
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/0
+      TASK_RUNNER: celery
+      STORAGE_PATH: /data/storage
+      ANALYZER_VERSION: SONORA_DSP_v0.1
+      LLM_PROVIDER: ${LLM_PROVIDER:-openai}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4.1-mini}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-sonnet-4-5-20250929}
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
+      GOOGLE_MODEL: ${GOOGLE_MODEL:-gemini-2.0-flash}
+      MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-80}
+      LOG_LEVEL: INFO
+    volumes:
+      - sonora_storage:/data/storage
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: celery -A app.workers.celery:celery_app worker --loglevel=INFO
+    environment:
+      DATABASE_URL: postgresql+asyncpg://sonora:sonora@postgres:5432/sonora
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/0
+      TASK_RUNNER: celery
+      STORAGE_PATH: /data/storage
+      ANALYZER_VERSION: SONORA_DSP_v0.1
+      RUN_MIGRATIONS: "0"
+      LOG_LEVEL: INFO
+    volumes:
+      - sonora_storage:/data/storage
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      backend:
+        condition: service_started
+
+volumes:
+  sonora_pg:
+  sonora_storage:

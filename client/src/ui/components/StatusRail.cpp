@@ -1,53 +1,47 @@
 #include "ui/components/StatusRail.h"
+
 #include "ui/theme/Theme.h"
 
 namespace sonora
 {
-
-static juce::String computeLabel(ComputeState state)
+namespace
 {
-    switch (state)
+juce::String computeLabel(const AppState& state)
+{
+    if (!state.backendOnline())
+        return "OFFLINE";
+    switch (state.analysisState())
     {
-        case ComputeState::Ready:
-            return "READY";
-        case ComputeState::Analyzing:
+        case AnalysisState::Loading:
+            return "LOADING";
+        case AnalysisState::Analyzing:
             return "ANALYZING";
-        case ComputeState::Complete:
+        case AnalysisState::Complete:
             return "COMPLETE";
-        case ComputeState::Offline:
+        case AnalysisState::Failed:
+            return "FAILED";
+        case AnalysisState::Empty:
         default:
-            return "OFFLINE";
+            return "READY";
     }
 }
 
-StatusRail::StatusRail()
+juce::String resultLabel(const AppState& state)
+{
+    if (state.analysisState() == AnalysisState::Failed)
+        return state.lastError().isEmpty() ? "FAILED" : state.lastError();
+    if (state.analysisState() == AnalysisState::Complete)
+        return state.issueCountLabel();
+    if (state.analysisState() == AnalysisState::Analyzing || state.analysisState() == AnalysisState::Loading)
+        return "PENDING";
+    return "---";
+}
+} // namespace
+
+StatusRail::StatusRail(AppState& state)
+    : state_(state)
 {
     setOpaque(true);
-}
-
-void StatusRail::setState(ComputeState state)
-{
-    state_ = state;
-    if (state == ComputeState::Complete)
-        result_ = "COMPLETE";
-    else if (state == ComputeState::Analyzing)
-        result_ = "PENDING";
-    else
-        result_ = "---";
-    usage_ = state == ComputeState::Offline ? "---" : "LOCAL";
-    repaint();
-}
-
-void StatusRail::setUsage(const juce::String& usage)
-{
-    usage_ = usage;
-    repaint();
-}
-
-void StatusRail::setResult(const juce::String& result)
-{
-    result_ = result;
-    repaint();
 }
 
 void StatusRail::paint(juce::Graphics& g)
@@ -69,8 +63,8 @@ void StatusRail::paint(juce::Graphics& g)
     };
 
     paintCell(bounds.removeFromLeft(cell), "COMPUTE", computeLabel(state_));
-    paintCell(bounds.removeFromLeft(cell), "USAGE", usage_);
-    paintCell(bounds, "RESULT", result_);
+    paintCell(bounds.removeFromLeft(cell), "USAGE", state_.backendOnline() ? "LOCAL" : "---");
+    paintCell(bounds, "RESULT", resultLabel(state_));
 }
 
 } // namespace sonora

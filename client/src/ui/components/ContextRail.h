@@ -7,10 +7,10 @@
 namespace sonora
 {
 
-class StatusRail : public juce::Component
+class ContextRail : public juce::Component
 {
 public:
-    explicit StatusRail(AppState& state);
+    explicit ContextRail(AppState& state);
     void paint(juce::Graphics& g) override;
 
 private:

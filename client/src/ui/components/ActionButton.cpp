@@ -39,7 +39,7 @@ void ActionButton::paint(juce::Graphics& g)
         g.fillRect(bounds);
     }
 
-    g.setColour(colors::foreground());
+    g.setColour(isEnabled() ? colors::foreground() : colors::mutedForeground());
     g.setFont(type::label(11.0f));
     g.drawFittedText(label_, bounds.reduced(10, 0), juce::Justification::centred, 1);
 }
@@ -58,7 +58,7 @@ void ActionButton::mouseExit(const juce::MouseEvent&)
 
 void ActionButton::mouseUp(const juce::MouseEvent& event)
 {
-    if (onClick != nullptr && getLocalBounds().contains(event.getPosition()))
+    if (isEnabled() && onClick != nullptr && getLocalBounds().contains(event.getPosition()))
         onClick();
 }
 

@@ -1,11 +1,9 @@
 #pragma once
 
-#include "models/Insight.h"
+#include "state/AppState.h"
 #include "ui/components/ActionButton.h"
 
-#include <functional>
 #include <juce_gui_basics/juce_gui_basics.h>
-#include <vector>
 
 namespace sonora
 {
@@ -13,17 +11,15 @@ namespace sonora
 class InsightPanel : public juce::Component
 {
 public:
-    InsightPanel();
-
-    void setInsights(const std::vector<models::Insight>& insights);
-    std::function<void()> onGenerateReport;
+    explicit InsightPanel(AppState& state);
 
     void paint(juce::Graphics& g) override;
     void resized() override;
 
 private:
-    std::vector<models::Insight> insights_;
+    AppState& state_;
     ActionButton generate_;
+    ActionButton createEq_;
 };
 
 } // namespace sonora

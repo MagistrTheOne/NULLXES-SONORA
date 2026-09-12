@@ -1,4 +1,4 @@
-# SONORA Runtime (Phase 2)
+# SONORA Runtime (Phase 2 / v0.2)
 
 Standalone desktop shell. Native JUCE 8, no WebView, no VST yet.
 
@@ -25,27 +25,21 @@ Binary:
 client\build\SONORA_artefacts\Release\SONORA.exe
 ```
 
-## UI (Phase 2.1)
+## Workflow
 
-Native JUCE, mock session on launch. No API yet.
+UI lives off `AppState` / `AnalysisState`:
 
-Component names match a future shadcn Studio twin:
+`Empty → Loading → Analyzing → Complete | Failed`
 
-| JUCE | shadcn |
-|---|---|
-| MetricCard | Card |
-| IssueRow | list item + Progress |
-| ActionButton | Button outline/ghost |
-| SpectrumView | Chart placeholder |
-| InsightPanel | Card + structured fields |
-| StatusRail | Footer + Badge |
-| AssistantPanel | Textarea + ghost buttons |
+```
+LOAD TRACK → ANALYZING → TRACK INTELLIGENCE → ENGINEERING REPORT → ACTION
+```
 
-Not yet: HTTP, real file load, OpenGL FFT, VST.
+Empty shows NO TRACK. Analyzing shows DSP progress. Complete shows BPM / key / issues, then SONORA Insight and CREATE objects.
 
 ## Backend
 
-Runtime will talk to the existing FastAPI app. Raise the backend separately:
+Runtime talks to the FastAPI brain. Raise it separately (do not start Docker from here unless you intend to):
 
 ```bat
 cd backend
@@ -53,3 +47,14 @@ uvicorn app.main:app --reload
 ```
 
 Default API: `http://127.0.0.1:8000`
+
+Used by the client:
+
+- `GET /health`
+- `POST /api/v1/audio/analyze` (multipart file)
+- `GET /api/v1/audio/{id}`
+- `POST /api/v1/recommendation/generate`
+- `POST /api/v1/generate/harmony`
+- `GET /api/v1/profile`
+
+Harmony is MIDI-first JSON (`key`, `bars`, `chords`). No audio generation.

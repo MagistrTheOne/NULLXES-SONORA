@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.22)
 
-project(sonora-runtime VERSION 0.1.0 LANGUAGES CXX)
+project(sonora-runtime VERSION 0.2.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -33,7 +33,7 @@ juce_add_gui_app(SONORA
     PRODUCT_NAME "SONORA"
     COMPANY_NAME "NULLXES"
     BUNDLE_ID com.nullxes.sonora
-    VERSION 0.1.0
+    VERSION 0.2.0
     NEEDS_WEB_BROWSER FALSE
 )
 
@@ -45,6 +45,10 @@ target_sources(SONORA PRIVATE
     src/app/MainWindow.cpp
     src/state/AppState.h
     src/state/AppState.cpp
+    src/backend/Dto.h
+    src/backend/Dto.cpp
+    src/backend/ApiClient.h
+    src/backend/ApiClient.cpp
     src/models/AudioAnalysis.h
     src/models/Issue.h
     src/models/Insight.h
@@ -63,8 +67,14 @@ target_sources(SONORA PRIVATE
     src/ui/components/InsightPanel.cpp
     src/ui/components/StatusRail.h
     src/ui/components/StatusRail.cpp
-    src/ui/components/AssistantPanel.h
-    src/ui/components/AssistantPanel.cpp
+    src/ui/components/TabBar.h
+    src/ui/components/TabBar.cpp
+    src/ui/components/ContextRail.h
+    src/ui/components/ContextRail.cpp
+    src/ui/components/CreatePanel.h
+    src/ui/components/CreatePanel.cpp
+    src/ui/components/ProjectCanvas.h
+    src/ui/components/ProjectCanvas.cpp
     src/ui/screens/Dashboard.h
     src/ui/screens/Dashboard.cpp
 )
@@ -86,6 +96,7 @@ target_link_libraries(SONORA PRIVATE
     juce::juce_events
     juce::juce_graphics
     juce::juce_gui_basics
+    juce::juce_gui_extra
     juce::juce_recommended_config_flags
     juce::juce_recommended_warning_flags
 )

@@ -33,3 +33,32 @@ inline juce::Colour severityColour(float severity)
     return colors::muted();
 }
 } // namespace sonora::theme
+
+namespace sonora::Theme
+{
+inline juce::Colour card() { return colors::card(); }
+inline juce::Colour surface() { return colors::elevated(); }
+inline juce::Colour text() { return colors::foreground(); }
+inline juce::Colour muted() { return colors::mutedForeground(); }
+inline juce::Colour accent() { return colors::foreground(); }
+inline juce::Colour border() { return colors::border(); }
+
+inline void drawLabel(juce::Graphics& g, juce::Rectangle<int> bounds, const juce::String& text)
+{
+    theme::drawSectionLabel(g, bounds, text);
+}
+
+inline void drawBody(juce::Graphics& g, juce::Rectangle<int> bounds, const juce::String& text)
+{
+    g.setColour(colors::foreground());
+    g.setFont(type::body(13.0f));
+    g.drawFittedText(text, bounds, juce::Justification::centredLeft, 1);
+}
+
+inline void drawMuted(juce::Graphics& g, juce::Rectangle<int> bounds, const juce::String& text)
+{
+    g.setColour(colors::mutedForeground());
+    g.setFont(type::label(10.0f));
+    g.drawFittedText(text, bounds, juce::Justification::centredLeft, 1);
+}
+} // namespace sonora::Theme

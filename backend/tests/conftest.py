@@ -10,7 +10,7 @@ from sqlalchemy import create_engine, text
 from app.core.config import get_settings
 
 
-def write_stereo_tone(
+def write_stereo_wav(
     path: Path,
     *,
     sample_rate: int = 22050,
@@ -51,7 +51,10 @@ def write_clipped_stereo(path: Path, sample_rate: int = 22050) -> Path:
 
 @pytest.fixture
 def stereo_wav(tmp_path: Path) -> Path:
-    return write_stereo_tone(tmp_path / "stereo.wav")
+    return write_stereo_wav(tmp_path / "stereo.wav")
+
+
+write_stereo_tone = write_stereo_wav
 
 
 @pytest.fixture

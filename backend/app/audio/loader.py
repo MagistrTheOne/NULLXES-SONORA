@@ -24,10 +24,13 @@ def _ensure_channel_first(samples: np.ndarray) -> np.ndarray:
         return samples
     if samples.ndim != 2:
         raise AnalysisError("Unexpected audio shape")
-    # soundfile: (frames, channels); librosa: (channels, frames)
-    if samples.shape[0] < samples.shape[1]:
+    rows, cols = samples.shape
+    # soundfile: (frames, channels<=8). librosa: (channels<=8, frames).
+    if cols <= 8 and rows > cols:
         return samples.T
-    return samples
+    if rows <= 8 and cols > rows:
+        return samples
+    return samples.T if rows > cols else samples
 
 
 def load_audio(path: Path) -> LoadedAudio:
@@ -40,8 +43,6 @@ def load_audio(path: Path) -> LoadedAudio:
     try:
         data, sample_rate = sf.read(str(path), always_2d=False)
         samples = np.asarray(data, dtype=np.float32)
-        if samples.ndim == 2:
-            samples = samples.T
     except Exception:
         samples, sample_rate = librosa.load(str(path), sr=None, mono=False)
         samples = np.asarray(samples, dtype=np.float32)

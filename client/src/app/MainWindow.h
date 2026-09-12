@@ -1,7 +1,7 @@
 #pragma once
 
 #include "state/AppState.h"
-#include "ui/Dashboard.h"
+#include "ui/screens/Dashboard.h"
 
 #include <juce_gui_basics/juce_gui_basics.h>
 

@@ -43,13 +43,30 @@ target_sources(SONORA PRIVATE
     src/app/Application.cpp
     src/app/MainWindow.h
     src/app/MainWindow.cpp
-    src/ui/Theme.h
-    src/ui/Dashboard.h
-    src/ui/Dashboard.cpp
     src/state/AppState.h
+    src/state/AppState.cpp
     src/models/AudioAnalysis.h
     src/models/Issue.h
     src/models/Insight.h
+    src/ui/theme/Colors.h
+    src/ui/theme/Typography.h
+    src/ui/theme/Theme.h
+    src/ui/components/ActionButton.h
+    src/ui/components/ActionButton.cpp
+    src/ui/components/MetricCard.h
+    src/ui/components/MetricCard.cpp
+    src/ui/components/IssueRow.h
+    src/ui/components/IssueRow.cpp
+    src/ui/components/SpectrumView.h
+    src/ui/components/SpectrumView.cpp
+    src/ui/components/InsightPanel.h
+    src/ui/components/InsightPanel.cpp
+    src/ui/components/StatusRail.h
+    src/ui/components/StatusRail.cpp
+    src/ui/components/AssistantPanel.h
+    src/ui/components/AssistantPanel.cpp
+    src/ui/screens/Dashboard.h
+    src/ui/screens/Dashboard.cpp
 )
 
 target_include_directories(SONORA PRIVATE

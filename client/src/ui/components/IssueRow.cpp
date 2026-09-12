@@ -1,0 +1,92 @@
+#include "ui/components/IssueRow.h"
+#include "ui/theme/Theme.h"
+
+namespace sonora
+{
+
+static juce::String issueTitle(const juce::String& type)
+{
+    if (type == "muddy_low_end")
+        return "LOW END BUILDUP";
+    if (type == "frequency_conflict")
+        return "FREQUENCY CONFLICT";
+    if (type == "narrow_stereo")
+        return "NARROW STEREO";
+    if (type == "clipping")
+        return "CLIPPING";
+    if (type == "low_dynamic_range")
+        return "LOW DYNAMIC RANGE";
+    return type.toUpperCase();
+}
+
+IssueRow::IssueRow()
+{
+    setOpaque(false);
+}
+
+void IssueRow::setIssue(const models::Issue& issue)
+{
+    empty_ = false;
+    title_ = issueTitle(issue.type);
+    detail_ = issue.detail;
+    severity_ = issue.severity;
+    repaint();
+}
+
+void IssueRow::setEmpty(const juce::String& message)
+{
+    empty_ = true;
+    title_ = message;
+    detail_.clear();
+    severity_ = 0.0f;
+    repaint();
+}
+
+void IssueRow::paint(juce::Graphics& g)
+{
+    auto bounds = getLocalBounds();
+    g.setColour(colors::border());
+    g.drawLine(
+        (float) bounds.getX(),
+        (float) bounds.getBottom() - 0.5f,
+        (float) bounds.getRight(),
+        (float) bounds.getBottom() - 0.5f,
+        1.0f);
+
+    if (empty_)
+    {
+        g.setColour(colors::mutedForeground());
+        g.setFont(type::body(12.0f));
+        g.drawFittedText(title_, bounds.reduced(4, 0), juce::Justification::centredLeft, 1);
+        return;
+    }
+
+    auto row = bounds.reduced(4, 8);
+    auto marker = row.removeFromLeft(10).withSizeKeepingCentre(6, 6);
+    g.setColour(theme::severityColour(severity_));
+    g.fillRect(marker);
+
+    row.removeFromLeft(10);
+    auto meter = row.removeFromRight(120);
+    auto text = row;
+
+    g.setColour(colors::foreground());
+    g.setFont(type::label(11.0f));
+    g.drawFittedText(title_, text.removeFromTop(16), juce::Justification::centredLeft, 1);
+    g.setColour(colors::muted());
+    g.setFont(type::body(11.0f));
+    g.drawFittedText(detail_, text, juce::Justification::centredLeft, 1);
+
+    g.setColour(colors::muted());
+    g.setFont(type::mono(11.0f));
+    auto value = meter.removeFromRight(42);
+    g.drawFittedText(juce::String(severity_, 2), value, juce::Justification::centredRight, 1);
+
+    auto track = meter.withSizeKeepingCentre(meter.getWidth() - 8, 3);
+    g.setColour(colors::border());
+    g.fillRect(track);
+    g.setColour(theme::severityColour(severity_));
+    g.fillRect(track.withWidth(juce::roundToInt((float) track.getWidth() * juce::jlimit(0.0f, 1.0f, severity_))));
+}
+
+} // namespace sonora

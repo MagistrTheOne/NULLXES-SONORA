@@ -8,10 +8,10 @@ namespace sonora::models
 
 struct Insight
 {
+    std::string issue;
+    std::string reason;
     std::string action;
-    std::string target;
     std::optional<float> frequencyHz;
-    std::string rationale;
     int priority = 1;
 };
 

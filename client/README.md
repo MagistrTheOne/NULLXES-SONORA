@@ -8,11 +8,16 @@ This target is `SONORA.exe`. The future VST lives in `../plugin/`.
 
 ```bat
 cd client
-cmake -B build -G "Visual Studio 17 2022" -A x64
+cmake -B build -G "Visual Studio 17 2022" -A x64 -DSONORA_JUCE_DIR=D:/NULLXES/_cache/JUCE-8.0.8
 cmake --build build --config Release
 ```
 
-First configure clones JUCE 8 via FetchContent.
+JUCE 8.0.8 is expected at `SONORA_JUCE_DIR` (or `client/third_party/JUCE`).
+A workspace path with spaces breaks FetchContent on Windows — clone JUCE to a path without spaces:
+
+```bat
+git clone --depth 1 --branch 8.0.8 https://github.com/juce-framework/JUCE.git D:\NULLXES\_cache\JUCE-8.0.8
+```
 
 Binary:
 
@@ -20,14 +25,23 @@ Binary:
 client\build\SONORA_artefacts\Release\SONORA.exe
 ```
 
-## What this scaffold is
+## UI (Phase 2.1)
 
-- Window + theme tokens
-- Empty dashboard (NULLXES / SONORA)
-- `AppState` + `BackendStatus`
-- Model types (`AudioAnalysis`, `Issue`, `Insight`)
+Native JUCE, mock session on launch. No API yet.
 
-Not yet: HTTP, file load, analysis panels, OpenGL spectrum.
+Component names match a future shadcn Studio twin:
+
+| JUCE | shadcn |
+|---|---|
+| MetricCard | Card |
+| IssueRow | list item + Progress |
+| ActionButton | Button outline/ghost |
+| SpectrumView | Chart placeholder |
+| InsightPanel | Card + structured fields |
+| StatusRail | Footer + Badge |
+| AssistantPanel | Textarea + ghost buttons |
+
+Not yet: HTTP, real file load, OpenGL FFT, VST.
 
 ## Backend
 

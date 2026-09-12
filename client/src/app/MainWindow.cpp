@@ -1,5 +1,5 @@
 #include "app/MainWindow.h"
-#include "ui/Theme.h"
+#include "ui/theme/Theme.h"
 
 namespace sonora
 {
@@ -13,8 +13,8 @@ MainWindow::MainWindow(const juce::String& name)
     setUsingNativeTitleBar(true);
     setContentNonOwned(&dashboard_, true);
     setResizable(true, true);
-    setResizeLimits(960, 640, 4096, 2160);
-    centreWithSize(1280, 800);
+    setResizeLimits(1100, 720, 4096, 2160);
+    centreWithSize(1440, 900);
     setVisible(true);
 }
 

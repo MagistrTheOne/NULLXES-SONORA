@@ -1,9 +1,40 @@
 #include "ui/components/CreatePage.h"
 
+#include "ui/copy/HumanCopy.h"
 #include "ui/theme/Theme.h"
 
 namespace sonora
 {
+namespace
+{
+void drawClip(juce::Graphics& g, juce::Rectangle<int>& bounds, const juce::String& title, const models::MidiClip& clip)
+{
+    Theme::drawMuted(g, bounds.removeFromTop(14), title);
+    bounds.removeFromTop(4);
+    Theme::drawBody(g, bounds.removeFromTop(18),
+                    juce::String(clip.key) + "  /  " + juce::String(clip.bars) + " bars");
+    juce::String line;
+    const auto& tokens = !clip.notes.empty() ? clip.notes : clip.chords;
+    for (const auto& token : tokens)
+    {
+        if (line.isNotEmpty())
+            line << "   ";
+        line << juce::String(token);
+    }
+    if (line.isNotEmpty())
+        Theme::drawBody(g, bounds.removeFromTop(18), line);
+    juce::String pattern;
+    for (const auto& cell : clip.pattern)
+    {
+        if (pattern.isNotEmpty())
+            pattern << "  ";
+        pattern << juce::String(cell);
+    }
+    if (pattern.isNotEmpty())
+        Theme::drawMuted(g, bounds.removeFromTop(14), pattern);
+    bounds.removeFromTop(8);
+}
+} // namespace
 
 CreatePage::CreatePage(AppState& state) : state_(state)
 {
@@ -13,6 +44,8 @@ CreatePage::CreatePage(AppState& state) : state_(state)
     arrangement_.setLabel("ARRANGEMENT");
     vocal_.setLabel("VOCAL SPACE");
     chords_.onClick = [this] { state_.requestHarmony(); };
+    bass_.onClick = [this] { state_.requestBass(); };
+    pad_.onClick = [this] { state_.requestPad(); };
     arrangement_.onClick = [this] { state_.focusArrangement(); };
     vocal_.onClick = [this] { state_.createEqProfile(); };
     for (auto* button : { &chords_, &bass_, &pad_, &arrangement_, &vocal_ })
@@ -23,8 +56,8 @@ void CreatePage::paint(juce::Graphics& g)
 {
     const bool ready = state_.analysisState() == AnalysisState::Complete;
     chords_.setEnabled(ready);
-    bass_.setEnabled(false);
-    pad_.setEnabled(false);
+    bass_.setEnabled(ready);
+    pad_.setEnabled(ready);
     arrangement_.setEnabled(ready && state_.dna() != nullptr);
     vocal_.setEnabled(ready);
 
@@ -41,11 +74,11 @@ void CreatePage::paint(juce::Graphics& g)
                           : "Load a track first");
     bounds.removeFromTop(8);
     Theme::drawMuted(g, bounds.removeFromTop(14), "SONORA does not chat. It writes objects.");
-    bounds.removeFromTop(120);
+    bounds.removeFromTop(156);
 
     if (state_.harmony())
     {
-        Theme::drawMuted(g, bounds.removeFromTop(14), "MIDI CLIP");
+        Theme::drawMuted(g, bounds.removeFromTop(14), "HARMONY");
         bounds.removeFromTop(4);
         Theme::drawBody(g, bounds.removeFromTop(18),
                         juce::String(state_.harmony()->key) + "  /  " + juce::String(state_.harmony()->bars) + " bars");
@@ -56,7 +89,25 @@ void CreatePage::paint(juce::Graphics& g)
                 line << "   ";
             line << juce::String(chord);
         }
-        Theme::drawBody(g, bounds.removeFromTop(20), line);
+        Theme::drawBody(g, bounds.removeFromTop(18), line);
+        bounds.removeFromTop(8);
+    }
+    if (state_.bassClip())
+        drawClip(g, bounds, "BASS CLIP", *state_.bassClip());
+    if (state_.padClip())
+        drawClip(g, bounds, "PAD CLIP", *state_.padClip());
+    if (state_.dropPlan())
+    {
+        const auto& plan = *state_.dropPlan();
+        Theme::drawMuted(g, bounds.removeFromTop(14), "DROP PLAN");
+        bounds.removeFromTop(4);
+        Theme::drawBody(g, bounds.removeFromTop(18),
+                        juce::String(plan.sectionName) + "  "
+                            + copy::formatTime(plan.start) + " – " + copy::formatTime(plan.end)
+                            + "   " + juce::String(juce::roundToInt(plan.frequency)) + "Hz  "
+                            + juce::String(plan.gain, 1) + "dB");
+        for (const auto& action : plan.actions)
+            Theme::drawBody(g, bounds.removeFromTop(18), juce::String(action));
     }
 }
 

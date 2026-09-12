@@ -33,6 +33,58 @@ struct Harmony
     std::vector<std::string> chords;
 };
 
+struct MidiClip
+{
+    std::string role;
+    std::string key;
+    int bars = 8;
+    std::vector<std::string> chords;
+    std::vector<std::string> notes;
+    std::vector<std::string> pattern;
+};
+
+struct DropPlan
+{
+    std::string sectionName;
+    float start = 0.0f;
+    float end = 0.0f;
+    std::vector<std::string> actions;
+    float frequency = 3000.0f;
+    float gain = 2.5f;
+    float q = 1.1f;
+    float energyTarget = 0.85f;
+};
+
+struct AssistOption
+{
+    std::string id;
+    std::string label;
+};
+
+struct AssistAdvice
+{
+    std::string headline;
+    std::string detail;
+    std::vector<AssistOption> options;
+    std::string provider;
+};
+
+struct ReferenceGap
+{
+    float loudnessLufs = 0.0f;
+    float lowEnd = 0.0f;
+    float stereo = 0.0f;
+    float brightness = 0.0f;
+};
+
+struct ReferenceReport
+{
+    std::string targetFilename;
+    std::string referenceFilename;
+    ReferenceGap gap;
+    std::vector<std::string> notes;
+};
+
 struct SessionProfile
 {
     std::vector<std::string> style;

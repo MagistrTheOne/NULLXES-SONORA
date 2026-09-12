@@ -19,6 +19,10 @@ bool parseCompletedAnalysis(
     std::vector<models::Issue>& issues);
 std::vector<models::Insight> parseInsights(const juce::var& json);
 models::Harmony parseHarmony(const juce::var& json);
+models::MidiClip parseMidiClip(const juce::var& json);
+models::DropPlan parseDropPlan(const juce::var& json);
+models::AssistAdvice parseAssist(const juce::var& json);
+models::ReferenceReport parseReference(const juce::var& json);
 models::SessionProfile parseProfile(const juce::var& json);
 juce::String parseError(const juce::var& json);
 

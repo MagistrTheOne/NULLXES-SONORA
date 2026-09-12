@@ -11,12 +11,15 @@
 
 #include <atomic>
 #include <functional>
+#include <memory>
 #include <optional>
 #include <string>
 #include <vector>
 
 namespace sonora
 {
+
+class AudioPlayer;
 
 enum class AnalysisState
 {
@@ -70,7 +73,13 @@ public:
     const std::vector<models::Issue>& issues() const { return issues_; }
     const std::vector<models::Insight>& insights() const { return insights_; }
     const std::optional<models::Harmony>& harmony() const { return harmony_; }
+    const std::optional<models::MidiClip>& bassClip() const { return bassClip_; }
+    const std::optional<models::MidiClip>& padClip() const { return padClip_; }
+    const std::optional<models::DropPlan>& dropPlan() const { return dropPlan_; }
     const std::optional<models::EqProfile>& eqProfile() const { return eqProfile_; }
+    const std::optional<models::AssistAdvice>& assistAdvice() const { return assistAdvice_; }
+    const std::optional<models::ReferenceReport>& reference() const { return reference_; }
+    bool referenceBusy() const { return referenceBusy_; }
     const models::SessionProfile& profile() const { return profile_; }
     const juce::String& audioId() const { return audioId_; }
     const juce::String& analysisId() const { return analysisId_; }
@@ -95,7 +104,15 @@ public:
     juce::String healthVerdict() const;
     copy::Delta mixDelta() const;
     copy::Finding assistFinding() const;
+    std::vector<models::AssistOption> assistOptions() const;
     std::vector<copy::MixRow> mixRows() const;
+
+    bool canPlay() const;
+    bool isPlaying() const;
+    float playhead() const;
+    juce::String playheadLabel() const;
+    void togglePlayback();
+    void seekPlayhead(float amount);
 
     void setTab(WorkspaceTab tab);
     void selectCanvasNode(CanvasNode node);
@@ -108,6 +125,12 @@ public:
     void analyzeFile(const juce::File& file);
     void requestEngineeringReport();
     void requestHarmony();
+    void requestBass();
+    void requestPad();
+    void requestDrop();
+    void requestAssist();
+    void applyAssistOption(const juce::String& id);
+    void compareReference(const juce::File& file);
     void createEqProfile();
     void clearTrack();
 
@@ -115,8 +138,10 @@ private:
     void notify();
     void runAsync(std::function<void()> work);
     void applyOnMessage(std::function<void()> fn);
+    void resetGenerated();
 
     ApiClient api_;
+    std::unique_ptr<AudioPlayer> player_;
     std::atomic<bool> alive_ { true };
     std::atomic<int> inflight_ { 0 };
     AnalysisState analysisState_ { AnalysisState::Empty };
@@ -132,7 +157,13 @@ private:
     std::vector<models::Issue> issues_;
     std::vector<models::Insight> insights_;
     std::optional<models::Harmony> harmony_;
+    std::optional<models::MidiClip> bassClip_;
+    std::optional<models::MidiClip> padClip_;
+    std::optional<models::DropPlan> dropPlan_;
     std::optional<models::EqProfile> eqProfile_;
+    std::optional<models::AssistAdvice> assistAdvice_;
+    std::optional<models::ReferenceReport> reference_;
+    bool referenceBusy_ = false;
     models::SessionProfile profile_;
     WorkspaceTab tab_ { WorkspaceTab::Track };
     CanvasNode selectedNode_ { CanvasNode::Track };

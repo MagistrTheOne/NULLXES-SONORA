@@ -20,6 +20,7 @@ Dashboard::Dashboard(AppState& state)
     , assist_(state)
     , createRail_(state)
     , createPage_(state)
+    , referencePage_(state)
     , structure_(state)
     , dnaView_(state)
     , canvas_(state)
@@ -45,6 +46,7 @@ Dashboard::Dashboard(AppState& state)
     addAndMakeVisible(assist_);
     addAndMakeVisible(createRail_);
     addAndMakeVisible(createPage_);
+    addAndMakeVisible(referencePage_);
     addAndMakeVisible(structure_);
     addAndMakeVisible(dnaView_);
     addAndMakeVisible(canvas_);
@@ -94,6 +96,7 @@ void Dashboard::refreshFromState()
     const bool mix = complete && tab == WorkspaceTab::Mix;
     const bool arrangement = complete && tab == WorkspaceTab::Arrangement;
     const bool create = complete && tab == WorkspaceTab::Create;
+    const bool reference = complete && tab == WorkspaceTab::Reference;
     const bool advancedMix = mix && state_.uiMode() == UiMode::Advanced;
 
     loadTrack_.setEnabled(stage != AnalysisState::Loading && stage != AnalysisState::Analyzing);
@@ -106,6 +109,7 @@ void Dashboard::refreshFromState()
     masking_.setVisible(track || mix);
     health_.setVisible(true);
     createPage_.setVisible(create);
+    referencePage_.setVisible(reference);
     structure_.setVisible(arrangement);
     dnaView_.setVisible(advancedMix);
     canvas_.setVisible(track || !complete);
@@ -219,6 +223,7 @@ void Dashboard::resized()
         translation_.setBounds({});
         masking_.setBounds({});
         createPage_.setBounds({});
+        referencePage_.setBounds({});
         structure_.setBounds({});
         dnaView_.setBounds({});
         canvas_.setBounds(body.removeFromBottom(canvasH));
@@ -237,7 +242,25 @@ void Dashboard::resized()
         structure_.setBounds({});
         dnaView_.setBounds({});
         canvas_.setBounds({});
+        referencePage_.setBounds({});
         createPage_.setBounds(body);
+        return;
+    }
+
+    if (tab == WorkspaceTab::Reference)
+    {
+        waveform_.setBounds({});
+        identity_.setBounds({});
+        arrangement_.setBounds({});
+        mixHealth_.setBounds({});
+        spectrum_.setBounds({});
+        translation_.setBounds({});
+        masking_.setBounds({});
+        structure_.setBounds({});
+        dnaView_.setBounds({});
+        canvas_.setBounds({});
+        createPage_.setBounds({});
+        referencePage_.setBounds(body);
         return;
     }
 
@@ -251,6 +274,7 @@ void Dashboard::resized()
         translation_.setBounds({});
         masking_.setBounds({});
         createPage_.setBounds({});
+        referencePage_.setBounds({});
         dnaView_.setBounds({});
         canvas_.setBounds({});
         structure_.setBounds(body);
@@ -264,6 +288,7 @@ void Dashboard::resized()
         arrangement_.setBounds({});
         spectrum_.setBounds({});
         createPage_.setBounds({});
+        referencePage_.setBounds({});
         structure_.setBounds({});
         canvas_.setBounds({});
         if (state_.uiMode() == UiMode::Advanced)
@@ -291,12 +316,13 @@ void Dashboard::resized()
     }
 
     createPage_.setBounds({});
+    referencePage_.setBounds({});
     structure_.setBounds({});
     dnaView_.setBounds({});
     canvas_.setBounds(body.removeFromBottom(canvasH));
     body.removeFromBottom(10);
 
-    waveform_.setBounds(body.removeFromTop(78));
+    waveform_.setBounds(body.removeFromTop(92));
     body.removeFromTop(10);
     identity_.setBounds(body.removeFromTop(86));
     body.removeFromTop(10);

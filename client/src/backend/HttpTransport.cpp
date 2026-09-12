@@ -144,7 +144,8 @@ HttpResult HttpTransport::postMultipartFile(
     const juce::String& filename,
     const juce::String& mime,
     const juce::MemoryBlock& data,
-    int timeoutMs) const
+    int timeoutMs,
+    const juce::StringPairArray& extraFields) const
 {
     const auto boundary = "----SonoraBoundary" + juce::String::toHexString(juce::Random::getSystemRandom().nextInt64());
     auto asciiName = filename;
@@ -158,6 +159,12 @@ HttpResult HttpTransport::postMultipartFile(
     asciiName = asciiName.replaceCharacter('"', '_');
 
     juce::MemoryOutputStream body;
+    for (int i = 0; i < extraFields.size(); ++i)
+    {
+        body << "--" << boundary << "\r\n";
+        body << "Content-Disposition: form-data; name=\"" << extraFields.getAllKeys()[i] << "\"\r\n\r\n";
+        body << extraFields.getAllValues()[i] << "\r\n";
+    }
     body << "--" << boundary << "\r\n";
     body << "Content-Disposition: form-data; name=\"" << fieldName
          << "\"; filename=\"" << asciiName << "\"";
@@ -187,7 +194,7 @@ HttpResult HttpTransport::execute(
         return result;
 
     WinHandle session(WinHttpOpen(
-        L"SONORA/0.2",
+        L"SONORA/0.4",
         WINHTTP_ACCESS_TYPE_NO_PROXY,
         WINHTTP_NO_PROXY_NAME,
         WINHTTP_NO_PROXY_BYPASS,

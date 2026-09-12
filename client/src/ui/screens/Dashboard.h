@@ -13,6 +13,7 @@
 #include "ui/components/MaskingHeatmap.h"
 #include "ui/components/MixHealthView.h"
 #include "ui/components/ProjectCanvas.h"
+#include "ui/components/ReferencePage.h"
 #include "ui/components/SpectrumView.h"
 #include "ui/components/StatusRail.h"
 #include "ui/components/StructureView.h"
@@ -58,6 +59,7 @@ private:
     InsightPanel assist_;
     CreatePanel createRail_;
     CreatePage createPage_;
+    ReferencePage referencePage_;
     StructureView structure_;
     DnaView dnaView_;
     ProjectCanvas canvas_;

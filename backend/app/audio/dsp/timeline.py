@@ -102,6 +102,23 @@ def compute_timeline(samples: np.ndarray, sample_rate: int, hop_sec: float = HOP
     )
 
 
+def peak_envelope(samples: np.ndarray, bins: int = 512) -> list[float]:
+    """Peak-hold waveform for UI. Not a DAW overview meter."""
+    mono = to_mono(samples)
+    if mono.size == 0:
+        return [0.0] * bins
+    if mono.size <= bins:
+        peak = float(np.max(np.abs(mono)) + 1e-12)
+        return [round(float(abs(sample) / peak), 4) for sample in mono]
+    edges = np.linspace(0, mono.size, bins + 1).astype(int)
+    out: list[float] = []
+    peak = float(np.max(np.abs(mono)) + 1e-12)
+    for start, end in zip(edges[:-1], edges[1:], strict=True):
+        end = max(end, start + 1)
+        out.append(round(float(np.max(np.abs(mono[start:end])) / peak), 4))
+    return out
+
+
 def downsample_curve(values: np.ndarray, bins: int = 48) -> list[float]:
     if values.size == 0:
         return [0.0] * bins

@@ -176,6 +176,66 @@ juce::var ApiClient::generateHarmony(const juce::String& analysisId) const
     return accept(HttpTransport().postJson(url, body, 120000), "HARMONY");
 }
 
+juce::var ApiClient::generateBass(const juce::String& analysisId) const
+{
+    const auto url = baseUrl_ + "/api/v1/generate/bass";
+    const auto body = R"({"analysis_id":")" + analysisId + R"("})";
+    clientLog("POST " + url + " body=" + body);
+    return accept(HttpTransport().postJson(url, body, 120000), "BASS");
+}
+
+juce::var ApiClient::generatePad(const juce::String& analysisId) const
+{
+    const auto url = baseUrl_ + "/api/v1/generate/pad";
+    const auto body = R"({"analysis_id":")" + analysisId + R"("})";
+    clientLog("POST " + url + " body=" + body);
+    return accept(HttpTransport().postJson(url, body, 120000), "PAD");
+}
+
+juce::var ApiClient::generateDrop(const juce::String& analysisId) const
+{
+    const auto url = baseUrl_ + "/api/v1/generate/drop";
+    const auto body = R"({"analysis_id":")" + analysisId + R"("})";
+    clientLog("POST " + url + " body=" + body);
+    return accept(HttpTransport().postJson(url, body, 120000), "DROP");
+}
+
+juce::var ApiClient::requestAssist(const juce::String& analysisId) const
+{
+    const auto url = baseUrl_ + "/api/v1/assist";
+    const auto body = R"({"analysis_id":")" + analysisId + R"("})";
+    clientLog("POST " + url + " body=" + body);
+    return accept(HttpTransport().postJson(url, body, 120000), "ASSIST");
+}
+
+juce::var ApiClient::compareReference(const juce::String& audioId, const juce::File& file) const
+{
+    lastFault_ = {};
+    const auto url = baseUrl_ + "/api/v1/audio/compare";
+    const auto name = file.getFileName();
+    const auto mime = mimeFor(file);
+    clientLog("POST " + url + " audio_id=" + audioId + " file=" + name);
+
+    if (!file.existsAsFile() || file.getSize() <= 0)
+    {
+        lastFault_ = { "REFERENCE FAILED", 0, "reference file missing" };
+        return {};
+    }
+
+    juce::MemoryBlock data;
+    if (!file.loadFileAsData(data) || data.getSize() == 0)
+    {
+        lastFault_ = { "REFERENCE FAILED", 0, "cannot read reference" };
+        return {};
+    }
+
+    juce::StringPairArray fields;
+    fields.set("audio_id", audioId);
+    return accept(
+        HttpTransport().postMultipartFile(url, "file", name, mime, data, 180000, fields),
+        "REFERENCE");
+}
+
 juce::var ApiClient::getProfile() const
 {
     const auto url = baseUrl_ + "/api/v1/profile";

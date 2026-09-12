@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.22)
 
-project(sonora-runtime VERSION 0.3.1 LANGUAGES CXX)
+project(sonora-runtime VERSION 0.4.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -33,7 +33,7 @@ juce_add_gui_app(SONORA
     PRODUCT_NAME "SONORA"
     COMPANY_NAME "NULLXES"
     BUNDLE_ID com.nullxes.sonora
-    VERSION 0.3.1
+    VERSION 0.4.0
     NEEDS_WEB_BROWSER FALSE
 )
 
@@ -53,6 +53,8 @@ target_sources(SONORA PRIVATE
     src/backend/Dto.cpp
     src/backend/ApiClient.h
     src/backend/ApiClient.cpp
+    src/audio/AudioPlayer.h
+    src/audio/AudioPlayer.cpp
     src/models/AudioAnalysis.h
     src/models/TrackDna.h
     src/models/Issue.h
@@ -90,6 +92,8 @@ target_sources(SONORA PRIVATE
     src/ui/components/StructureView.cpp
     src/ui/components/WaveformStrip.h
     src/ui/components/WaveformStrip.cpp
+    src/ui/components/ReferencePage.h
+    src/ui/components/ReferencePage.cpp
     src/ui/components/IdentityRow.h
     src/ui/components/IdentityRow.cpp
     src/ui/components/HealthGauge.h
@@ -113,6 +117,8 @@ target_include_directories(SONORA PRIVATE
 target_compile_definitions(SONORA PRIVATE
     JUCE_WEB_BROWSER=0
     JUCE_USE_CURL=0
+    JUCE_USE_FLAC=1
+    JUCE_USE_MP3AUDIOFORMAT=1
     JUCE_APPLICATION_NAME_STRING="$<TARGET_PROPERTY:SONORA,JUCE_PRODUCT_NAME>"
     JUCE_APPLICATION_VERSION_STRING="$<TARGET_PROPERTY:SONORA,JUCE_VERSION>"
 )
@@ -124,6 +130,10 @@ target_link_libraries(SONORA PRIVATE
     juce::juce_graphics
     juce::juce_gui_basics
     juce::juce_gui_extra
+    juce::juce_audio_basics
+    juce::juce_audio_devices
+    juce::juce_audio_formats
+    juce::juce_audio_utils
     juce::juce_recommended_config_flags
     juce::juce_recommended_warning_flags
 )

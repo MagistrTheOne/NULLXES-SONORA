@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from app.audio.dsp.timeline import compute_timeline, downsample_curve
+from app.audio.dsp.timeline import compute_timeline, downsample_curve, peak_envelope
 from app.audio.intelligence.genre import infer_genre_profile
 from app.audio.intelligence.masking import build_masking
 from app.audio.intelligence.mix_character import build_mix_character
@@ -39,9 +39,11 @@ def build_track_dna(
         ),
         energy=EnergyMap(
             curve=curve,
+            peaks=peak_envelope(audio.samples),
             hop_sec=round(timeline.hop_sec, 4),
             mean=round(float(sum(curve) / max(len(curve), 1)), 4),
             peak=round(float(max(curve) if curve else 0.0), 4),
+            method="rms_envelope + peak_hold",
         ),
         structure=structure,
         mix_character=mix,

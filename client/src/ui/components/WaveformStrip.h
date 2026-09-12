@@ -7,13 +7,23 @@
 namespace sonora
 {
 
-class WaveformStrip : public juce::Component
+class WaveformStrip : public juce::Component,
+                      private juce::Timer
 {
 public:
     explicit WaveformStrip(AppState& state);
+    ~WaveformStrip() override;
+
     void paint(juce::Graphics& g) override;
+    void mouseDown(const juce::MouseEvent& event) override;
+    void mouseDrag(const juce::MouseEvent& event) override;
 
 private:
+    void timerCallback() override;
+    juce::Rectangle<int> playBounds() const;
+    juce::Rectangle<int> waveBounds() const;
+    void seekFrom(const juce::MouseEvent& event);
+
     AppState& state_;
 };
 

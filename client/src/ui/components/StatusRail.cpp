@@ -40,7 +40,7 @@ void StatusRail::paint(juce::Graphics& g)
         result = state_.fault().reason.isEmpty() ? "FAILED" : state_.fault().reason;
 
     paintCell(bounds.removeFromLeft(cell), "COMPUTE", compute);
-    paintCell(bounds.removeFromLeft(cell), "SONORA", "v0.3.1");
+    paintCell(bounds.removeFromLeft(cell), "SONORA", "v0.4.0");
     paintCell(bounds, "RESULT", result);
 }
 

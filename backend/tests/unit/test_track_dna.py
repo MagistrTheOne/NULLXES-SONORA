@@ -43,6 +43,10 @@ def test_short_tone_still_builds_dna(stereo_wav) -> None:
     assert dna.structure.sections
     assert dna.structure.sections[0].name == "body"
     assert len(dna.energy.curve) >= 1
+    assert len(dna.energy.peaks) >= 8
+    assert max(dna.energy.peaks) > 0.0
+    assert min(dna.energy.peaks) >= 0.0
+    assert dna.energy.method == "rms_envelope + peak_hold"
     assert {item.name for item in dna.translation.targets} == {"phone", "car", "club", "headphones"}
     assert dna.masking.roles == ["kick", "bass", "vocal", "lead"]
     assert len(dna.masking.matrix) == 4

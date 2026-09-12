@@ -1,5 +1,6 @@
 #include "state/AppState.h"
 
+#include "audio/AudioPlayer.h"
 #include "backend/ClientLog.h"
 #include "backend/Dto.h"
 
@@ -32,6 +33,7 @@ models::Insight insightFromIssue(const models::Issue& issue)
 } // namespace
 
 AppState::AppState()
+    : player_(std::make_unique<AudioPlayer>())
 {
     pingHealth();
 }
@@ -124,7 +126,15 @@ juce::String AppState::objectCountLabel() const
         count += (int) model->objects.size();
     if (harmony_)
         ++count;
+    if (bassClip_)
+        ++count;
+    if (padClip_)
+        ++count;
+    if (dropPlan_)
+        ++count;
     if (eqProfile_)
+        ++count;
+    if (reference_)
         ++count;
     return juce::String(count) + (count == 1 ? " OBJECT" : " OBJECTS");
 }
@@ -197,9 +207,61 @@ copy::Delta AppState::mixDelta() const
 
 copy::Finding AppState::assistFinding() const
 {
+    if (assistAdvice_ && !assistAdvice_->headline.empty())
+        return { juce::String(assistAdvice_->headline), juce::String(assistAdvice_->detail) };
     if (!analysis_)
         return { "Load a track.", "SONORA will listen, then we can work." };
     return copy::assistFinding(*analysis_, issues_);
+}
+
+std::vector<models::AssistOption> AppState::assistOptions() const
+{
+    if (assistAdvice_ && !assistAdvice_->options.empty())
+        return assistAdvice_->options;
+    return {
+        { "strengthen_drop", "Strengthen drop" },
+        { "fix_vocal_space", "Fix vocal space" },
+        { "create_bass", "Create bass" },
+        { "compare_reference", "Compare reference" },
+    };
+}
+
+bool AppState::canPlay() const
+{
+    return player_ != nullptr && player_->isReady();
+}
+
+bool AppState::isPlaying() const
+{
+    return player_ != nullptr && player_->isPlaying();
+}
+
+float AppState::playhead() const
+{
+    return player_ != nullptr ? player_->positionNormalized() : 0.0f;
+}
+
+juce::String AppState::playheadLabel() const
+{
+    if (player_ == nullptr || !player_->isReady())
+        return durationLabel();
+    return copy::formatTime((float) player_->positionSeconds()) + " / " + durationLabel();
+}
+
+void AppState::togglePlayback()
+{
+    if (player_ == nullptr)
+        return;
+    player_->toggle();
+    notify();
+}
+
+void AppState::seekPlayhead(float amount)
+{
+    if (player_ == nullptr)
+        return;
+    player_->seekNormalized(amount);
+    notify();
 }
 
 std::vector<copy::MixRow> AppState::mixRows() const
@@ -218,8 +280,6 @@ const models::TrackDna* AppState::dna() const
 
 void AppState::setTab(WorkspaceTab tab)
 {
-    if (tab == WorkspaceTab::Reference)
-        return;
     tab_ = tab;
     switch (tab)
     {
@@ -227,6 +287,7 @@ void AppState::setTab(WorkspaceTab tab)
         case WorkspaceTab::Mix: selectedNode_ = CanvasNode::Improve; break;
         case WorkspaceTab::Arrangement: selectedNode_ = CanvasNode::Understand; break;
         case WorkspaceTab::Create: selectedNode_ = CanvasNode::Create; break;
+        case WorkspaceTab::Reference: selectedNode_ = CanvasNode::Understand; break;
         default: break;
     }
     notify();
@@ -286,18 +347,36 @@ bool AppState::handleKeyPress(const juce::KeyPress& key)
         disarmAssist();
         return true;
     }
+    if (key == juce::KeyPress::spaceKey && canPlay())
+    {
+        togglePlayback();
+        return true;
+    }
     return false;
+}
+
+void AppState::resetGenerated()
+{
+    insights_.clear();
+    harmony_.reset();
+    bassClip_.reset();
+    padClip_.reset();
+    dropPlan_.reset();
+    eqProfile_.reset();
+    assistAdvice_.reset();
+    reference_.reset();
+    referenceBusy_ = false;
 }
 
 void AppState::clearTrack()
 {
+    if (player_ != nullptr)
+        player_->unload();
     hasTrack_ = false;
     loadedFilename_.clear();
     analysis_.reset();
     issues_.clear();
-    insights_.clear();
-    harmony_.reset();
-    eqProfile_.reset();
+    resetGenerated();
     audioId_.clear();
     analysisId_.clear();
     analyzeProgress_ = 0.0f;
@@ -334,11 +413,11 @@ void AppState::analyzeFile(const juce::File& file)
         previousAnalysis_ = *analysis_;
     hasTrack_ = true;
     loadedFilename_ = file.getFileName().toStdString();
+    if (player_ != nullptr)
+        player_->load(file);
     analysis_.reset();
     issues_.clear();
-    insights_.clear();
-    harmony_.reset();
-    eqProfile_.reset();
+    resetGenerated();
     fault_ = {};
     analyzeProgress_ = 0.08f;
     analysisState_ = AnalysisState::Loading;
@@ -410,6 +489,7 @@ void AppState::analyzeFile(const juce::File& file)
                         tab_ = WorkspaceTab::Track;
                         fault_ = {};
                         notify();
+                        requestAssist();
                     }
                     else
                     {
@@ -480,6 +560,131 @@ void AppState::requestHarmony()
             else
             {
                 harmony_ = dto::parseHarmony(json);
+                fault_ = {};
+            }
+            notify();
+        });
+    });
+}
+
+void AppState::requestBass()
+{
+    if (analysisId_.isEmpty())
+        return;
+    setTab(WorkspaceTab::Create);
+    runAsync([this] {
+        auto json = api_.generateBass(analysisId_);
+        applyOnMessage([this, json] {
+            if (json.isVoid())
+                fault_ = api_.lastFault();
+            else
+            {
+                bassClip_ = dto::parseMidiClip(json);
+                fault_ = {};
+            }
+            notify();
+        });
+    });
+}
+
+void AppState::requestPad()
+{
+    if (analysisId_.isEmpty())
+        return;
+    setTab(WorkspaceTab::Create);
+    runAsync([this] {
+        auto json = api_.generatePad(analysisId_);
+        applyOnMessage([this, json] {
+            if (json.isVoid())
+                fault_ = api_.lastFault();
+            else
+            {
+                padClip_ = dto::parseMidiClip(json);
+                fault_ = {};
+            }
+            notify();
+        });
+    });
+}
+
+void AppState::requestDrop()
+{
+    if (analysisId_.isEmpty())
+        return;
+    runAsync([this] {
+        auto json = api_.generateDrop(analysisId_);
+        applyOnMessage([this, json] {
+            if (json.isVoid())
+                fault_ = api_.lastFault();
+            else
+            {
+                dropPlan_ = dto::parseDropPlan(json);
+                models::EqProfile profile;
+                profile.operation = "EQ";
+                profile.target = dropPlan_->sectionName.empty() ? "drop" : dropPlan_->sectionName;
+                profile.frequencyHz = dropPlan_->frequency;
+                profile.gainDb = dropPlan_->gain;
+                eqProfile_ = profile;
+                fault_ = {};
+            }
+            notify();
+        });
+    });
+}
+
+void AppState::requestAssist()
+{
+    if (analysisId_.isEmpty())
+        return;
+    runAsync([this] {
+        auto json = api_.requestAssist(analysisId_);
+        applyOnMessage([this, json] {
+            if (json.isVoid())
+            {
+                if (assistAdvice_)
+                    fault_ = api_.lastFault();
+            }
+            else
+            {
+                assistAdvice_ = dto::parseAssist(json);
+                fault_ = {};
+            }
+            notify();
+        });
+    });
+}
+
+void AppState::applyAssistOption(const juce::String& id)
+{
+    if (id == "strengthen_drop")
+        requestDrop();
+    else if (id == "create_bass" || id == "bass")
+        requestBass();
+    else if (id == "create_pad" || id == "pad")
+        requestPad();
+    else if (id == "fix_vocal_space")
+        createEqProfile();
+    else if (id == "compare_reference")
+        setTab(WorkspaceTab::Reference);
+    else if (id == "create_chords" || id == "harmony")
+        requestHarmony();
+}
+
+void AppState::compareReference(const juce::File& file)
+{
+    if (audioId_.isEmpty())
+        return;
+    referenceBusy_ = true;
+    notify();
+    runAsync([this, file] {
+        auto json = api_.compareReference(audioId_, file);
+        applyOnMessage([this, json] {
+            referenceBusy_ = false;
+            if (json.isVoid())
+                fault_ = api_.lastFault();
+            else
+            {
+                reference_ = dto::parseReference(json);
                 fault_ = {};
             }
             notify();

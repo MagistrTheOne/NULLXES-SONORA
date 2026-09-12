@@ -11,7 +11,7 @@ TopBar::TopBar(AppState& state) : state_(state)
     bind(mix, WorkspaceTab::Mix, true);
     bind(arrangement, WorkspaceTab::Arrangement, true);
     bind(create, WorkspaceTab::Create, true);
-    bind(reference, WorkspaceTab::Reference, false);
+    bind(reference, WorkspaceTab::Reference, true);
     addAndMakeVisible(advanced);
     advanced.onClick = [this] { state_.toggleUiMode(); };
 }
@@ -41,7 +41,7 @@ void TopBar::paint(juce::Graphics& g)
     style(mix, tab == WorkspaceTab::Mix, true);
     style(arrangement, tab == WorkspaceTab::Arrangement, true);
     style(create, tab == WorkspaceTab::Create, true);
-    style(reference, false, false);
+    style(reference, tab == WorkspaceTab::Reference, true);
     advanced.setButtonText(state_.uiMode() == UiMode::Advanced ? "ADVANCED" : "SIMPLE");
     style(advanced, state_.uiMode() == UiMode::Advanced, true);
 
@@ -69,6 +69,7 @@ void TopBar::paint(juce::Graphics& g)
         case WorkspaceTab::Mix: active = &mix; break;
         case WorkspaceTab::Arrangement: active = &arrangement; break;
         case WorkspaceTab::Create: active = &create; break;
+        case WorkspaceTab::Reference: active = &reference; break;
         default: break;
     }
     g.setColour(Theme::border());

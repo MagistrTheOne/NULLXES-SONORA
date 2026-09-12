@@ -13,6 +13,8 @@ CreatePanel::CreatePanel(AppState& state)
     pad_.setLabel("PAD LAYER");
     arrangement_.setLabel("ARRANGEMENT MAP");
     chords_.onClick = [this] { state_.requestHarmony(); };
+    bassline_.onClick = [this] { state_.requestBass(); };
+    pad_.onClick = [this] { state_.requestPad(); };
     arrangement_.onClick = [this] { state_.focusArrangement(); };
     for (auto* button : { &chords_, &bassline_, &pad_, &arrangement_ })
         addAndMakeVisible(*button);
@@ -22,8 +24,8 @@ void CreatePanel::paint(juce::Graphics& g)
 {
     const bool ready = state_.analysisState() == AnalysisState::Complete;
     chords_.setEnabled(ready);
-    bassline_.setEnabled(false);
-    pad_.setEnabled(false);
+    bassline_.setEnabled(ready);
+    pad_.setEnabled(ready);
     arrangement_.setEnabled(ready && state_.dna() != nullptr);
 
     theme::fillCard(g, getLocalBounds());

@@ -21,6 +21,11 @@ public:
     juce::var getAudio(const juce::String& audioId) const;
     juce::var generateReport(const juce::String& analysisId) const;
     juce::var generateHarmony(const juce::String& analysisId) const;
+    juce::var generateBass(const juce::String& analysisId) const;
+    juce::var generatePad(const juce::String& analysisId) const;
+    juce::var generateDrop(const juce::String& analysisId) const;
+    juce::var requestAssist(const juce::String& analysisId) const;
+    juce::var compareReference(const juce::String& audioId, const juce::File& file) const;
     juce::var getProfile() const;
 
 private:

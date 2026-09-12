@@ -23,7 +23,8 @@ public:
         const juce::String& filename,
         const juce::String& mime,
         const juce::MemoryBlock& data,
-        int timeoutMs) const;
+        int timeoutMs,
+        const juce::StringPairArray& extraFields = {}) const;
 
 private:
     HttpResult execute(

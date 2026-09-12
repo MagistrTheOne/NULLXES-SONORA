@@ -30,6 +30,7 @@ class TrackIdentity(BaseModel):
 
 class EnergyMap(BaseModel):
     curve: list[float]
+    peaks: list[float] = Field(default_factory=list)
     hop_sec: float
     mean: float
     peak: float

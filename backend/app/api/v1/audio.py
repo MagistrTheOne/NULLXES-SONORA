@@ -13,7 +13,9 @@ from app.schemas.audio import (
     AudioDetailResponse,
 )
 from app.schemas.common import EnqueuedAnalysisResponse
+from app.schemas.reference import ReferenceReport
 from app.services import analysis as analysis_service
+from app.services import reference as reference_service
 from app.services.task_runner import TaskRunner
 
 router = APIRouter(prefix="/audio", tags=["audio"])
@@ -67,6 +69,28 @@ async def analyze_audio(
         )
 
     raise SonoraError("Provide a multipart file or JSON {audio_id}")
+
+
+@router.post("/compare", response_model=ReferenceReport)
+async def compare_audio(
+    request: Request,
+    session: AsyncSession = SessionDep,
+) -> ReferenceReport:
+    form = await request.form()
+    upload = form.get("file")
+    audio_raw = form.get("audio_id")
+    if not isinstance(upload, StarletteUploadFile):
+        raise SonoraError("multipart field 'file' is required")
+    if audio_raw is None or str(audio_raw).strip() == "":
+        raise SonoraError("form field 'audio_id' is required")
+    data = await upload.read()
+    filename = upload.filename or "reference.wav"
+    return await reference_service.compare_reference(
+        session,
+        audio_id=UUID(str(audio_raw)),
+        filename=filename,
+        data=data,
+    )
 
 
 @router.get("/{audio_id}", response_model=AudioDetailResponse)

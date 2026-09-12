@@ -144,6 +144,11 @@ bool parseCompletedAnalysis(
                 for (const auto& item : *curve)
                     dna.energyCurve.push_back((float) item);
             }
+            if (auto* peaks = energy->getProperty("peaks").getArray())
+            {
+                for (const auto& item : *peaks)
+                    dna.energyPeaks.push_back((float) item);
+            }
         }
         if (auto* structure = obj(dnaObj->getProperty("structure")))
         {
@@ -310,6 +315,91 @@ models::Harmony parseHarmony(const juce::var& json)
             harmony.chords.push_back(item.toString().toStdString());
     }
     return harmony;
+}
+
+models::MidiClip parseMidiClip(const juce::var& json)
+{
+    models::MidiClip clip;
+    clip.role = str(json, "role").toStdString();
+    clip.key = str(json, "key").toStdString();
+    clip.bars = (int) json.getProperty("bars", 8);
+    if (auto* list = arr(json, "chords"))
+    {
+        for (const auto& item : *list)
+            clip.chords.push_back(item.toString().toStdString());
+    }
+    if (auto* list = arr(json, "notes"))
+    {
+        for (const auto& item : *list)
+            clip.notes.push_back(item.toString().toStdString());
+    }
+    if (auto* list = arr(json, "pattern"))
+    {
+        for (const auto& item : *list)
+            clip.pattern.push_back(item.toString().toStdString());
+    }
+    return clip;
+}
+
+models::DropPlan parseDropPlan(const juce::var& json)
+{
+    models::DropPlan plan;
+    plan.sectionName = str(json, "section_name").toStdString();
+    plan.start = (float) json.getProperty("start", 0.0);
+    plan.end = (float) json.getProperty("end", 0.0);
+    plan.frequency = (float) json.getProperty("frequency", 3000.0);
+    plan.gain = (float) json.getProperty("gain", 2.5);
+    plan.q = (float) json.getProperty("q", 1.1);
+    plan.energyTarget = (float) json.getProperty("energy_target", 0.85);
+    if (auto* list = arr(json, "actions"))
+    {
+        for (const auto& item : *list)
+            plan.actions.push_back(item.toString().toStdString());
+    }
+    return plan;
+}
+
+models::AssistAdvice parseAssist(const juce::var& json)
+{
+    models::AssistAdvice advice;
+    advice.headline = str(json, "headline").toStdString();
+    advice.detail = str(json, "detail").toStdString();
+    advice.provider = str(json, "provider").toStdString();
+    if (auto* list = arr(json, "options"))
+    {
+        for (const auto& item : *list)
+        {
+            auto* option = obj(item);
+            if (option == nullptr)
+                continue;
+            models::AssistOption row;
+            row.id = option->getProperty("id").toString().toStdString();
+            row.label = option->getProperty("label").toString().toStdString();
+            if (!row.id.empty())
+                advice.options.push_back(std::move(row));
+        }
+    }
+    return advice;
+}
+
+models::ReferenceReport parseReference(const juce::var& json)
+{
+    models::ReferenceReport report;
+    report.targetFilename = str(json, "target_filename").toStdString();
+    report.referenceFilename = str(json, "reference_filename").toStdString();
+    if (auto* gap = obj(json.getProperty("gap", {})))
+    {
+        report.gap.loudnessLufs = (float) gap->getProperty("loudness_lufs");
+        report.gap.lowEnd = (float) gap->getProperty("low_end");
+        report.gap.stereo = (float) gap->getProperty("stereo");
+        report.gap.brightness = (float) gap->getProperty("brightness");
+    }
+    if (auto* list = arr(json, "notes"))
+    {
+        for (const auto& item : *list)
+            report.notes.push_back(item.toString().toStdString());
+    }
+    return report;
 }
 
 models::SessionProfile parseProfile(const juce::var& json)

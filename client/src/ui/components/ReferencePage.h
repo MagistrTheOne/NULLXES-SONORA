@@ -5,25 +5,24 @@
 
 #include <juce_gui_basics/juce_gui_basics.h>
 
+#include <memory>
+
 namespace sonora
 {
 
-class InsightPanel : public juce::Component
+class ReferencePage : public juce::Component
 {
 public:
-    explicit InsightPanel(AppState& state);
-
+    explicit ReferencePage(AppState& state);
     void paint(juce::Graphics& g) override;
     void resized() override;
 
 private:
-    void syncOptions();
+    void chooseReference();
 
     AppState& state_;
-    ActionButton option0_;
-    ActionButton option1_;
-    ActionButton option2_;
-    ActionButton option3_;
+    ActionButton load_;
+    std::unique_ptr<juce::FileChooser> chooser_;
 };
 
 } // namespace sonora

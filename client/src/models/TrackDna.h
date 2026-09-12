@@ -54,6 +54,7 @@ struct TrackDna
     float keyConfidence = 0.0f;
     std::vector<std::string> genreProfile;
     std::vector<float> energyCurve;
+    std::vector<float> energyPeaks;
     float energyMean = 0.0f;
     float energyPeak = 0.0f;
     std::vector<StructureSection> sections;

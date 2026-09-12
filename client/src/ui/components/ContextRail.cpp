@@ -12,8 +12,7 @@ ContextRail::ContextRail(AppState& state)
 
 void ContextRail::paint(juce::Graphics& g)
 {
-    g.setColour(Theme::card());
-    g.fillRoundedRectangle(getLocalBounds().toFloat(), 10.0f);
+    theme::fillCard(g, getLocalBounds());
 
     auto bounds = getLocalBounds().reduced(18, 20);
     Theme::drawLabel(g, bounds.removeFromTop(12), "SESSION");
@@ -31,17 +30,19 @@ void ContextRail::paint(juce::Graphics& g)
     };
 
     const juce::String track = state_.hasTrack() ? juce::String(state_.loadedFilename()) : "NO TRACK";
-    juce::String engine = "DSP  OFFLINE";
+    juce::String engine = "DSP OFFLINE";
     if (state_.backendOnline())
     {
-        if (state_.analysisState() == AnalysisState::Analyzing || state_.analysisState() == AnalysisState::Loading)
-            engine = "DSP  WORKING";
+        if (state_.analysisState() == AnalysisState::Failed)
+            engine = "DSP FAILED";
+        else if (state_.analysisState() == AnalysisState::Analyzing || state_.analysisState() == AnalysisState::Loading)
+            engine = "DSP PROCESSING";
         else
-            engine = "DSP  READY";
+            engine = "DSP READY";
     }
 
     drawBlock("TRACK", { track });
-    drawBlock("SOURCE", { state_.channelLabel(), state_.sampleRateLabel() });
+    drawBlock("FORMAT", { state_.channelLabel(), state_.sampleRateLabel(), state_.bitDepthLabel() });
     drawBlock("ENGINE", { engine });
     drawBlock("PROFILE", state_.profileLines());
 }

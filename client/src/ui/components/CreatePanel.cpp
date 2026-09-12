@@ -4,49 +4,39 @@
 
 namespace sonora
 {
-namespace
-{
-void styleCreate(juce::TextButton& button, bool enabled)
-{
-    button.setEnabled(enabled);
-    button.setColour(juce::TextButton::buttonColourId, Theme::surface());
-    button.setColour(juce::TextButton::textColourOffId, enabled ? Theme::text() : Theme::muted());
-    button.setColour(juce::TextButton::textColourOnId, Theme::text());
-}
-} // namespace
 
 CreatePanel::CreatePanel(AppState& state)
     : state_(state)
 {
-    for (auto* button : { &chords, &bassline, &pad, &arrangement })
-    {
-        styleCreate(*button, false);
+    chords_.setLabel("CHORD PROGRESSION");
+    bassline_.setLabel("BASS PATTERN");
+    pad_.setLabel("PAD LAYER");
+    arrangement_.setLabel("ARRANGEMENT MAP");
+    chords_.onClick = [this] { state_.requestHarmony(); };
+    for (auto* button : { &chords_, &bassline_, &pad_, &arrangement_ })
         addAndMakeVisible(*button);
-    }
-    chords.onClick = [this] { state_.requestHarmony(); };
 }
 
 void CreatePanel::paint(juce::Graphics& g)
 {
     const bool ready = state_.analysisState() == AnalysisState::Complete;
-    styleCreate(chords, ready);
-    styleCreate(bassline, false);
-    styleCreate(pad, false);
-    styleCreate(arrangement, false);
+    chords_.setEnabled(ready);
+    bassline_.setEnabled(false);
+    pad_.setEnabled(false);
+    arrangement_.setEnabled(false);
 
-    g.setColour(Theme::card());
-    g.fillRoundedRectangle(getLocalBounds().toFloat(), 10.0f);
+    theme::fillCard(g, getLocalBounds());
 
-    auto bounds = getLocalBounds().reduced(18, 16);
+    auto bounds = getLocalBounds().reduced(16, 14);
     Theme::drawLabel(g, bounds.removeFromTop(12), "SONORA CREATIVE ENGINE");
-    bounds.removeFromTop(10);
-    Theme::drawMuted(g, bounds.removeFromTop(14), "CREATE");
-    bounds.removeFromTop(92);
+    bounds.removeFromTop(8);
+    Theme::drawMuted(g, bounds.removeFromTop(14), "CREATE OBJECT");
+    bounds.removeFromTop(100);
     Theme::drawMuted(g, bounds.removeFromTop(14), "CONTEXT");
     bounds.removeFromTop(8);
 
-    Theme::drawBody(g, bounds.removeFromTop(16), ready ? state_.bpmLabel() + " BPM" : "— BPM");
-    Theme::drawBody(g, bounds.removeFromTop(16), ready ? state_.keyLabel() : "—");
+    Theme::drawBody(g, bounds.removeFromTop(16), ready ? state_.bpmLabel() + " BPM" : "--- BPM");
+    Theme::drawBody(g, bounds.removeFromTop(16), ready ? state_.keyLabel() : "---");
     Theme::drawBody(g, bounds.removeFromTop(16),
                     state_.profileLines().empty() ? "Deep House" : state_.profileLines().front());
 
@@ -69,16 +59,16 @@ void CreatePanel::paint(juce::Graphics& g)
 
 void CreatePanel::resized()
 {
-    auto bounds = getLocalBounds().reduced(18, 16);
-    bounds.removeFromTop(36);
-    auto grid = bounds.removeFromTop(80);
+    auto bounds = getLocalBounds().reduced(16, 14);
+    bounds.removeFromTop(34);
+    auto grid = bounds.removeFromTop(92);
     const int gap = 8;
     const int w = (grid.getWidth() - gap) / 2;
     const int h = (grid.getHeight() - gap) / 2;
-    chords.setBounds(grid.getX(), grid.getY(), w, h);
-    bassline.setBounds(grid.getX() + w + gap, grid.getY(), w, h);
-    pad.setBounds(grid.getX(), grid.getY() + h + gap, w, h);
-    arrangement.setBounds(grid.getX() + w + gap, grid.getY() + h + gap, w, h);
+    chords_.setBounds(grid.getX(), grid.getY(), w, h);
+    bassline_.setBounds(grid.getX() + w + gap, grid.getY(), w, h);
+    pad_.setBounds(grid.getX(), grid.getY() + h + gap, w, h);
+    arrangement_.setBounds(grid.getX() + w + gap, grid.getY() + h + gap, w, h);
 }
 
 } // namespace sonora

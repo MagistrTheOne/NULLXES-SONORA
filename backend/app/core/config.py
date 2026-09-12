@@ -41,8 +41,18 @@ class Settings(BaseSettings):
         return self.max_upload_mb * 1024 * 1024
 
     @property
+    def is_sqlite(self) -> bool:
+        return self.database_url.startswith("sqlite")
+
+    @property
+    def llm_enabled(self) -> bool:
+        return self.llm_provider.lower() not in {"off", "none", "disabled"}
+
+    @property
     def sync_database_url(self) -> str:
         url = self.database_url
+        if url.startswith("sqlite+aiosqlite://"):
+            return url.replace("sqlite+aiosqlite://", "sqlite://", 1)
         if url.startswith("postgresql+asyncpg://"):
             return url.replace("postgresql+asyncpg://", "postgresql+psycopg2://", 1)
         if url.startswith("postgresql+psycopg2://"):

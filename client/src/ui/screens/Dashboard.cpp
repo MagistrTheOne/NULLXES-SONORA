@@ -1,5 +1,6 @@
 #include "ui/screens/Dashboard.h"
 
+#include "backend/ClientLog.h"
 #include "ui/theme/Theme.h"
 
 namespace sonora
@@ -56,11 +57,12 @@ void Dashboard::chooseTrack()
     chooser_ = std::make_unique<juce::FileChooser>(
         "LOAD TRACK",
         juce::File(),
-        "*.wav;*.mp3;*.flac;*.aiff;*.aif");
-    constexpr auto flags = juce::FileBrowserComponent::openMode
-                           | juce::FileBrowserComponent::canSelectFiles;
-    chooser_->launchAsync(flags, [this](const juce::FileChooser& chooser) {
+        "*.wav;*.mp3;*.flac");
+    constexpr auto chooserFlags = juce::FileBrowserComponent::openMode
+                                  | juce::FileBrowserComponent::canSelectFiles;
+    chooser_->launchAsync(chooserFlags, [this](const juce::FileChooser& chooser) {
         const auto file = chooser.getResult();
+        clientLog("FileChooser result=" + file.getFullPathName());
         if (file.existsAsFile())
             state_.analyzeFile(file);
     });
@@ -73,7 +75,6 @@ void Dashboard::refreshFromState()
     const auto tab = state_.tab();
 
     loadTrack_.setEnabled(stage != AnalysisState::Loading && stage != AnalysisState::Analyzing);
-    loadTrack_.setLabel(stage == AnalysisState::Empty ? "LOAD TRACK" : "LOAD TRACK");
 
     const bool showMetrics = complete && tab == WorkspaceTab::Overview;
     const bool showSpectrum = complete && (tab == WorkspaceTab::Overview || tab == WorkspaceTab::Spectrum);
@@ -116,7 +117,7 @@ void Dashboard::refreshFromState()
         loudness_.setEmpty(true);
         loudness_.setHint("LUFS (approx)");
         spectrum_.clear();
-        issues_[0].setEmpty("No issues  ·  load a track");
+        issues_[0].setEmpty("No issues");
         issues_[1].setEmpty({});
         issues_[2].setEmpty({});
     }
@@ -129,84 +130,106 @@ void Dashboard::paint(juce::Graphics& g)
 {
     g.fillAll(colors::background());
 
-    auto header = juce::Rectangle<int>(context_.getRight() + 20, 16, getWidth() - context_.getWidth() - 360, 70);
+    const int centerLeft = context_.getRight() + 20;
+    const int centerRight = insights_.getX() - 20;
+    auto header = juce::Rectangle<int>(centerLeft, 16, juce::jmax(200, centerRight - centerLeft), 70);
+    auto hud = header.removeFromRight(130);
+
     g.setColour(colors::muted());
     g.setFont(type::label(10.0f));
-    g.drawFittedText("NULLXES", header.removeFromTop(14), juce::Justification::centredLeft, 1);
+    g.drawText("NULLXES", header.removeFromTop(14), juce::Justification::centredLeft, true);
     g.setColour(colors::foreground());
     g.setFont(type::display(26.0f));
-    g.drawFittedText("SONORA", header.removeFromTop(30), juce::Justification::centredLeft, 1);
+    g.drawText("SONORA", header.removeFromTop(30), juce::Justification::centredLeft, true);
     g.setColour(colors::mutedForeground());
     g.setFont(type::label(10.0f));
-    g.drawFittedText("ADAPTIVE SOUND INTELLIGENCE", header, juce::Justification::centredLeft, 1);
+    g.drawText("ADAPTIVE SOUND INTELLIGENCE", header, juce::Justification::centredLeft, true);
 
-    auto trackRow = juce::Rectangle<int>(context_.getRight() + 20, tabs_.getBottom() + 10, 420, 22);
+    g.setColour(colors::mutedForeground());
+    g.setFont(type::label(10.0f));
+    g.drawText("SESSION 001", hud.removeFromTop(16), juce::Justification::centredRight, true);
+    hud.removeFromTop(6);
+    g.drawText("LOCAL MODE", hud.removeFromTop(16), juce::Justification::centredRight, true);
+
+    auto trackRow = juce::Rectangle<int>(centerLeft, tabs_.getBottom() + 10, 420, 22);
     g.setColour(colors::muted());
     g.setFont(type::label(10.0f));
-    g.drawFittedText("TRACK", trackRow.removeFromLeft(56), juce::Justification::centredLeft, 1);
+    g.drawText("TRACK", trackRow.removeFromLeft(56), juce::Justification::centredLeft, true);
     g.setColour(colors::foreground());
     g.setFont(type::body(14.0f));
-    g.drawFittedText(
+    g.drawText(
         state_.hasTrack() ? juce::String(state_.loadedFilename()) : "NO TRACK",
         trackRow,
         juce::Justification::centredLeft,
-        1);
+        true);
 
     const auto stage = state_.analysisState();
     const auto tab = state_.tab();
     auto stageBounds = juce::Rectangle<int>(
-        context_.getRight() + 20,
+        centerLeft,
         loadTrack_.getBottom() + 18,
-        canvas_.getX() > 0 ? insights_.getX() - context_.getRight() - 36 : getWidth() / 2,
+        juce::jmax(160, insights_.getX() - centerLeft - 16),
         juce::jmax(80, canvas_.getY() - loadTrack_.getBottom() - 28));
 
     if (stage != AnalysisState::Complete)
     {
-        g.setColour(colors::card());
-        g.fillRoundedRectangle(stageBounds.toFloat(), 10.0f);
-        auto inner = stageBounds.reduced(24, 28);
+        theme::fillCard(g, stageBounds);
+        auto inner = stageBounds.reduced(24, 24);
 
         if (stage == AnalysisState::Empty)
         {
-            theme::drawSectionLabel(g, inner.removeFromTop(16), "NO TRACK");
+            theme::drawSectionLabel(g, inner.removeFromTop(16), "NO ANALYSIS");
             inner.removeFromTop(10);
             g.setColour(colors::foreground());
-            g.setFont(type::display(22.0f));
-            g.drawFittedText("LOAD TRACK", inner.removeFromTop(28), juce::Justification::centredLeft, 1);
+            g.setFont(type::display(20.0f));
+            g.drawText("Load audio file", inner.removeFromTop(26), juce::Justification::centredLeft, true);
             inner.removeFromTop(8);
             g.setColour(colors::mutedForeground());
             g.setFont(type::body(13.0f));
-            g.drawFittedText(
-                "SONORA starts when a file enters the engine.",
-                inner.removeFromTop(20),
-                juce::Justification::centredLeft,
-                1);
+            g.drawText("->", inner.removeFromTop(18), juce::Justification::centredLeft, true);
+            inner.removeFromTop(8);
+            Theme::drawMuted(g, inner.removeFromTop(16), "SONORA WILL EXTRACT");
+            inner.removeFromTop(6);
+            const char* items[] = { "- Rhythm", "- Harmony", "- Frequency", "- Dynamics", "- Structure" };
+            for (const auto* item : items)
+                Theme::drawBody(g, inner.removeFromTop(18), item);
         }
         else if (stage == AnalysisState::Loading || stage == AnalysisState::Analyzing)
         {
             theme::drawSectionLabel(g, inner.removeFromTop(16), "ANALYZING AUDIO");
-            inner.removeFromTop(14);
-            auto bar = inner.removeFromTop(10).toFloat();
-            g.setColour(colors::border());
-            g.fillRoundedRectangle(bar, 3.0f);
+            inner.removeFromTop(12);
             g.setColour(colors::foreground());
-            g.fillRoundedRectangle(bar.withWidth(bar.getWidth() * state_.analyzeProgress()), 3.0f);
-            inner.removeFromTop(16);
-            g.setColour(colors::mutedForeground());
             g.setFont(type::label(11.0f));
-            g.drawFittedText("DSP ENGINE", inner.removeFromTop(16), juce::Justification::centredLeft, 1);
+            g.drawText("DSP ENGINE", inner.removeFromTop(16), juce::Justification::centredLeft, true);
+            inner.removeFromTop(6);
+            g.setColour(colors::mutedForeground());
+            g.setFont(type::body(13.0f));
+            g.drawText("Feature extraction", inner.removeFromTop(18), juce::Justification::centredLeft, true);
+            inner.removeFromTop(14);
+            auto bar = inner.removeFromTop(10);
+            g.setColour(colors::border());
+            g.fillRect(bar);
+            g.setColour(colors::foreground());
+            g.fillRect(bar.withWidth(juce::jmax(4, juce::roundToInt((float) bar.getWidth() * state_.analyzeProgress()))));
         }
         else
         {
-            theme::drawSectionLabel(g, inner.removeFromTop(16), "FAILED");
+            const auto& fault = state_.fault();
+            theme::drawSectionLabel(g, inner.removeFromTop(16), fault.title.isEmpty() ? "FAILED" : fault.title);
+            inner.removeFromTop(14);
+            Theme::drawMuted(g, inner.removeFromTop(14), "HTTP");
+            g.setColour(colors::foreground());
+            g.setFont(type::body(13.0f));
+            g.drawText(fault.httpLabel(), inner.removeFromTop(18), juce::Justification::centredLeft, true);
             inner.removeFromTop(10);
+            Theme::drawMuted(g, inner.removeFromTop(14), "REASON");
             g.setColour(colors::destructive());
             g.setFont(type::body(13.0f));
-            g.drawFittedText(
-                state_.lastError().isEmpty() ? "Backend did not complete analysis." : state_.lastError(),
-                inner.removeFromTop(40),
-                juce::Justification::topLeft,
-                3);
+            g.drawMultiLineText(
+                fault.reason.isEmpty() ? "unknown error" : fault.reason,
+                inner.getX(),
+                inner.getY() + 14,
+                inner.getWidth());
         }
         return;
     }
@@ -227,8 +250,7 @@ void Dashboard::paint(juce::Graphics& g)
 
     if (tab == WorkspaceTab::Harmony)
     {
-        g.setColour(colors::card());
-        g.fillRoundedRectangle(stageBounds.toFloat(), 10.0f);
+        theme::fillCard(g, stageBounds);
         auto inner = stageBounds.reduced(24, 22);
         theme::drawSectionLabel(g, inner.removeFromTop(16), "HARMONY");
         inner.removeFromTop(10);
@@ -236,11 +258,11 @@ void Dashboard::paint(juce::Graphics& g)
         {
             g.setColour(colors::foreground());
             g.setFont(type::display(20.0f));
-            g.drawFittedText(
-                juce::String(state_.harmony()->key) + "  ·  " + juce::String(state_.harmony()->bars) + " bars",
+            g.drawText(
+                juce::String(state_.harmony()->key) + "  /  " + juce::String(state_.harmony()->bars) + " bars",
                 inner.removeFromTop(28),
                 juce::Justification::centredLeft,
-                1);
+                true);
             inner.removeFromTop(8);
             juce::String line;
             for (const auto& chord : state_.harmony()->chords)
@@ -250,40 +272,28 @@ void Dashboard::paint(juce::Graphics& g)
                 line << juce::String(chord);
             }
             g.setFont(type::body(16.0f));
-            g.drawFittedText(line, inner.removeFromTop(24), juce::Justification::centredLeft, 1);
+            g.drawText(line, inner.removeFromTop(24), juce::Justification::centredLeft, true);
         }
         else
         {
             g.setColour(colors::mutedForeground());
             g.setFont(type::body(13.0f));
-            g.drawFittedText("CREATE → CHORDS writes a MIDI-first object.", inner.removeFromTop(24), juce::Justification::centredLeft, 1);
+            g.drawText("CREATE OBJECT -> CHORD PROGRESSION writes a MIDI clip.", inner.removeFromTop(24), juce::Justification::centredLeft, true);
         }
     }
     else if (tab == WorkspaceTab::Generate)
     {
-        g.setColour(colors::card());
-        g.fillRoundedRectangle(stageBounds.toFloat(), 10.0f);
+        theme::fillCard(g, stageBounds);
         auto inner = stageBounds.reduced(24, 22);
-        theme::drawSectionLabel(g, inner.removeFromTop(16), "GENERATE");
+        theme::drawSectionLabel(g, inner.removeFromTop(16), "CREATE");
         inner.removeFromTop(10);
         g.setColour(colors::mutedForeground());
         g.setFont(type::body(13.0f));
-        g.drawFittedText(
-            "SONORA does not chat. The creative engine on the right produces objects.",
-            inner.removeFromTop(40),
-            juce::Justification::topLeft,
-            2);
-    }
-    else if (tab == WorkspaceTab::Mix || tab == WorkspaceTab::Master)
-    {
-        g.setColour(colors::card());
-        g.fillRoundedRectangle(stageBounds.toFloat(), 10.0f);
-        auto inner = stageBounds.reduced(24, 22);
-        theme::drawSectionLabel(g, inner.removeFromTop(16), tab == WorkspaceTab::Mix ? "MIX" : "MASTER");
-        inner.removeFromTop(10);
-        g.setColour(colors::mutedForeground());
-        g.setFont(type::body(13.0f));
-        g.drawFittedText("Next module. Intelligence and objects come first.", inner.removeFromTop(24), juce::Justification::centredLeft, 1);
+        g.drawMultiLineText(
+            "SONORA does not chat. The creative engine produces musical objects.",
+            inner.getX(),
+            inner.getY() + 14,
+            inner.getWidth());
     }
 }
 
@@ -306,7 +316,7 @@ void Dashboard::resized()
     auto right = body.removeFromRight(rightW);
     body.removeFromRight(16);
 
-    const int createH = juce::jlimit(250, 320, right.getHeight() / 2);
+    const int createH = juce::jlimit(270, 340, right.getHeight() / 2);
     create_.setBounds(right.removeFromBottom(createH));
     right.removeFromBottom(12);
     insights_.setBounds(right);

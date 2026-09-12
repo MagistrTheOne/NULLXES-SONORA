@@ -16,23 +16,41 @@ def init_engines(settings: Settings | None = None) -> None:
     global _async_engine, _async_session_factory, _sync_engine, _sync_session_factory
     settings = settings or get_settings()
 
-    _async_engine = create_async_engine(
-        settings.database_url,
-        pool_pre_ping=True,
-        pool_size=5,
-        max_overflow=10,
-    )
+    if settings.is_sqlite:
+        _async_engine = create_async_engine(settings.database_url)
+        _sync_engine = create_engine(
+            settings.sync_database_url,
+            connect_args={"check_same_thread": False},
+        )
+        from app.database.base import Base
+        from app.models import (  # noqa: F401
+            Analysis,
+            AudioAsset,
+            OwnerDecision,
+            OwnerProfile,
+            Recommendation,
+            SystemEvent,
+        )
+
+        Base.metadata.create_all(_sync_engine)
+    else:
+        _async_engine = create_async_engine(
+            settings.database_url,
+            pool_pre_ping=True,
+            pool_size=5,
+            max_overflow=10,
+        )
+        _sync_engine = create_engine(
+            settings.sync_database_url,
+            pool_pre_ping=True,
+            pool_size=5,
+            max_overflow=10,
+        )
+
     _async_session_factory = async_sessionmaker(
         _async_engine,
         expire_on_commit=False,
         class_=AsyncSession,
-    )
-
-    _sync_engine = create_engine(
-        settings.sync_database_url,
-        pool_pre_ping=True,
-        pool_size=5,
-        max_overflow=10,
     )
     _sync_session_factory = sessionmaker(
         _sync_engine,

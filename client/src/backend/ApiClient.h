@@ -1,12 +1,9 @@
 #pragma once
 
-#include "models/AudioAnalysis.h"
-#include "models/Insight.h"
-#include "models/Issue.h"
+#include "backend/Fault.h"
+#include "backend/HttpTransport.h"
 
 #include <juce_core/juce_core.h>
-
-#include <memory>
 
 namespace sonora
 {
@@ -14,7 +11,10 @@ namespace sonora
 class ApiClient
 {
 public:
-    explicit ApiClient(juce::String baseUrl = "http://127.0.0.1:8000");
+    ApiClient();
+
+    const juce::String& baseUrl() const { return baseUrl_; }
+    const Fault& lastFault() const { return lastFault_; }
 
     bool health() const;
     juce::var analyzeFile(const juce::File& file) const;
@@ -23,15 +23,12 @@ public:
     juce::var generateHarmony(const juce::String& analysisId) const;
     juce::var getProfile() const;
 
-    juce::String lastError() const { return lastError_; }
-
 private:
-    juce::var getJson(const juce::String& path) const;
-    juce::var postJson(const juce::String& path, const juce::String& body) const;
-    juce::var readJson(std::unique_ptr<juce::InputStream> stream) const;
+    juce::var accept(const HttpResult& result, const juce::String& title) const;
+    juce::String mimeFor(const juce::File& file) const;
 
     juce::String baseUrl_;
-    mutable juce::String lastError_;
+    mutable Fault lastFault_;
 };
 
 } // namespace sonora

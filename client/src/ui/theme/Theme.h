@@ -21,7 +21,7 @@ inline void drawSectionLabel(juce::Graphics& g, juce::Rectangle<int> bounds, con
 {
     g.setColour(colors::muted());
     g.setFont(type::label(11.0f));
-    g.drawFittedText(text, bounds, juce::Justification::centredLeft, 1);
+    g.drawText(text, bounds, juce::Justification::centredLeft, true);
 }
 
 inline juce::Colour severityColour(float severity)
@@ -52,13 +52,13 @@ inline void drawBody(juce::Graphics& g, juce::Rectangle<int> bounds, const juce:
 {
     g.setColour(colors::foreground());
     g.setFont(type::body(13.0f));
-    g.drawFittedText(text, bounds, juce::Justification::centredLeft, 1);
+    g.drawText(text, bounds, juce::Justification::centredLeft, true);
 }
 
 inline void drawMuted(juce::Graphics& g, juce::Rectangle<int> bounds, const juce::String& text)
 {
     g.setColour(colors::mutedForeground());
     g.setFont(type::label(10.0f));
-    g.drawFittedText(text, bounds, juce::Justification::centredLeft, 1);
+    g.drawText(text, bounds, juce::Justification::centredLeft, true);
 }
 } // namespace sonora::Theme

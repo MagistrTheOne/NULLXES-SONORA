@@ -30,7 +30,7 @@ void InsightPanel::paint(juce::Graphics& g)
         bounds.removeFromTop(4);
         g.setColour(colors::foreground());
         g.setFont(type::body(13.0f));
-        g.drawFittedText(v, bounds.removeFromTop(18), juce::Justification::centredLeft, 1);
+        g.drawText(v, bounds.removeFromTop(18), juce::Justification::centredLeft, true);
         bounds.removeFromTop(10);
     };
 
@@ -38,35 +38,42 @@ void InsightPanel::paint(juce::Graphics& g)
     {
         g.setColour(colors::mutedForeground());
         g.setFont(type::body(12.0f));
-        g.drawFittedText(
+        g.drawMultiLineText(
             "Load a track. SONORA will detect a problem, propose an operation, then create an object.",
-            bounds.removeFromTop(56),
-            juce::Justification::topLeft,
-            3);
+            bounds.getX(),
+            bounds.getY() + 14,
+            bounds.getWidth());
         return;
     }
 
-    if (state_.insights().empty())
+    juce::String issue = "No issues yet";
+    juce::String confidence = "---";
+    juce::String action = "Generate engineering report";
+    juce::String target = "120Hz";
+
+    if (!state_.insights().empty())
     {
-        juce::String detected = state_.issues().empty() ? "No issues yet. Generate an engineering report."
-                                                       : juce::String(state_.issues().front().detail.empty()
-                                                                          ? state_.issues().front().type
-                                                                          : state_.issues().front().detail);
-        drawField("DETECTED", detected);
-        drawField("CONFIDENCE", state_.issues().empty() ? "—"
-                                                       : juce::String(juce::roundToInt(state_.issues().front().severity * 100.0f)) + "%");
-        drawField("SUGGESTED OPERATION", "Dynamic EQ");
-        drawField("TARGET", "120Hz");
-        return;
+        const auto& insight = state_.insights().front();
+        issue = insight.reason.empty() ? insight.issue : insight.reason;
+        if (issue.isEmpty())
+            issue = insight.action;
+        confidence = juce::String(juce::roundToInt(insight.confidence * 100.0f)) + "%";
+        action = insight.action.empty() ? "Create EQ profile" : juce::String(insight.action);
+        if (insight.frequencyHz.has_value())
+            target = juce::String(juce::roundToInt(*insight.frequencyHz)) + "Hz";
+    }
+    else if (!state_.issues().empty())
+    {
+        const auto& first = state_.issues().front();
+        issue = first.detail.empty() ? first.type : first.detail;
+        confidence = juce::String(juce::roundToInt(first.severity * 100.0f)) + "%";
+        action = "Create EQ profile";
     }
 
-    const auto& insight = state_.insights().front();
-    drawField("DETECTED", insight.reason.empty() ? insight.issue : insight.reason);
-    drawField("CONFIDENCE", juce::String(juce::roundToInt(insight.confidence * 100.0f)) + "%");
-    drawField("SUGGESTED OPERATION", insight.operation.empty() ? insight.action : insight.operation);
-    drawField("TARGET",
-              insight.frequencyHz.has_value() ? juce::String(juce::roundToInt(*insight.frequencyHz)) + "Hz"
-                                              : (insight.issue.empty() ? insight.action : juce::String(insight.issue)));
+    drawField("ISSUE", issue);
+    drawField("CONFIDENCE", confidence);
+    drawField("ACTION", action);
+    drawField("TARGET", target);
 
     if (state_.eqProfile())
     {
@@ -75,13 +82,13 @@ void InsightPanel::paint(juce::Graphics& g)
         bounds.removeFromTop(4);
         g.setColour(colors::foreground());
         g.setFont(type::body(13.0f));
-        g.drawFittedText(
-            juce::String(state_.eqProfile()->operation) + "  ·  "
-                + juce::String(juce::roundToInt(state_.eqProfile()->frequencyHz)) + "Hz  ·  "
+        g.drawText(
+            juce::String(state_.eqProfile()->operation) + "  "
+                + juce::String(juce::roundToInt(state_.eqProfile()->frequencyHz)) + "Hz  "
                 + juce::String(state_.eqProfile()->target),
             bounds.removeFromTop(18),
             juce::Justification::centredLeft,
-            1);
+            true);
     }
 }
 

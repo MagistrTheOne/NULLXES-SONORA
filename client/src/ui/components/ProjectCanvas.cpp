@@ -6,19 +6,68 @@ namespace sonora
 {
 namespace
 {
-void drawModule(juce::Graphics& g, juce::Rectangle<int> box, const juce::String& title,
-                const juce::String& lineA, const juce::String& lineB, bool active)
+enum class NodeState
 {
-    g.setColour(active ? Theme::card() : Theme::surface());
-    g.fillRoundedRectangle(box.toFloat(), 8.0f);
-    g.setColour(active ? Theme::accent().withAlpha(0.55f) : Theme::border());
-    g.drawRoundedRectangle(box.toFloat().reduced(0.5f), 8.0f, 1.0f);
+    Idle,
+    Waiting,
+    Loaded,
+    Processing,
+    Ready,
+    Failed
+};
+
+juce::Colour nodeColour(NodeState state)
+{
+    switch (state)
+    {
+        case NodeState::Processing:
+            return colors::warning();
+        case NodeState::Failed:
+            return colors::destructive();
+        case NodeState::Loaded:
+        case NodeState::Ready:
+            return colors::borderStrong();
+        case NodeState::Waiting:
+        case NodeState::Idle:
+        default:
+            return colors::border();
+    }
+}
+
+juce::String nodeLabel(NodeState state)
+{
+    switch (state)
+    {
+        case NodeState::Loaded:
+            return "loaded";
+        case NodeState::Processing:
+            return "processing";
+        case NodeState::Waiting:
+            return "waiting";
+        case NodeState::Ready:
+            return "ready";
+        case NodeState::Failed:
+            return "failed";
+        case NodeState::Idle:
+        default:
+            return "idle";
+    }
+}
+
+void drawModule(juce::Graphics& g, juce::Rectangle<int> box, const juce::String& title,
+                const juce::String& lineA, NodeState state)
+{
+    const bool live = state == NodeState::Loaded || state == NodeState::Processing || state == NodeState::Ready;
+    g.setColour(live ? Theme::card() : Theme::surface());
+    g.fillRect(box);
+    g.setColour(nodeColour(state));
+    g.drawRect(box, 1);
 
     auto inner = box.reduced(10, 8);
     Theme::drawLabel(g, inner.removeFromTop(12), title);
     inner.removeFromTop(8);
     Theme::drawBody(g, inner.removeFromTop(16), lineA);
-    Theme::drawMuted(g, inner.removeFromTop(14), lineB);
+    Theme::drawMuted(g, inner.removeFromTop(14), nodeLabel(state));
 }
 
 void drawLink(juce::Graphics& g, juce::Rectangle<int> from, juce::Rectangle<int> to)
@@ -34,8 +83,7 @@ ProjectCanvas::ProjectCanvas(AppState& state) : state_(state) {}
 
 void ProjectCanvas::paint(juce::Graphics& g)
 {
-    g.setColour(Theme::card());
-    g.fillRoundedRectangle(getLocalBounds().toFloat(), 10.0f);
+    theme::fillCard(g, getLocalBounds());
 
     auto bounds = getLocalBounds().reduced(18, 12);
     Theme::drawLabel(g, bounds.removeFromTop(12), "PROJECT CANVAS");
@@ -47,34 +95,48 @@ void ProjectCanvas::paint(juce::Graphics& g)
         return juce::Rectangle<int>(bounds.getX() + i * (w + gap), bounds.getY(), w, bounds.getHeight());
     };
 
-    const bool hasTrack = state_.hasTrack();
-    const bool analyzing = state_.analysisState() == AnalysisState::Analyzing
-                           || state_.analysisState() == AnalysisState::Loading;
-    const bool complete = state_.analysisState() == AnalysisState::Complete;
+    const auto stage = state_.analysisState();
     const bool hasHarmony = state_.harmony().has_value();
 
-    juce::String bpm = complete ? state_.bpmLabel() + " BPM" : "waiting";
-    juce::String key = complete ? state_.keyLabel() : "waiting";
+    NodeState input = state_.hasTrack() ? NodeState::Loaded : NodeState::Idle;
+    NodeState analyzer = NodeState::Idle;
+    if (stage == AnalysisState::Loading || stage == AnalysisState::Analyzing)
+        analyzer = NodeState::Processing;
+    else if (stage == AnalysisState::Complete)
+        analyzer = NodeState::Ready;
+    else if (stage == AnalysisState::Failed)
+        analyzer = NodeState::Failed;
 
-    const auto input = slot(0);
-    const auto analyzer = slot(1);
-    const auto harmony = slot(2);
-    const auto bass = slot(3);
-    const auto pad = slot(4);
-    const auto exportMidi = slot(5);
+    NodeState harmony = NodeState::Waiting;
+    if (hasHarmony)
+        harmony = NodeState::Ready;
+    else if (stage != AnalysisState::Complete)
+        harmony = NodeState::Idle;
 
-    drawModule(g, input, "INPUT", hasTrack ? juce::String(state_.loadedFilename()) : "NO TRACK", "drag >", hasTrack);
-    drawModule(g, analyzer, "ANALYZER", analyzing ? "WORKING" : (complete ? "READY" : "IDLE"), bpm, analyzing || complete);
-    drawModule(g, harmony, "HARMONY", hasHarmony ? juce::String(state_.harmony()->key) : key, hasHarmony ? "MIDI clip" : "drag >", hasHarmony);
-    drawModule(g, bass, "BASS ENGINE", "pending", "drag >", false);
-    drawModule(g, pad, "PAD GENERATOR", "pending", "drag >", false);
-    drawModule(g, exportMidi, "EXPORT MIDI", hasHarmony ? "READY" : "idle", "drag >", hasHarmony);
+    const auto exportState = hasHarmony ? NodeState::Ready : NodeState::Idle;
 
-    drawLink(g, input, analyzer);
-    drawLink(g, analyzer, harmony);
-    drawLink(g, harmony, bass);
-    drawLink(g, bass, pad);
-    drawLink(g, pad, exportMidi);
+    const auto inputBox = slot(0);
+    const auto analyzerBox = slot(1);
+    const auto harmonyBox = slot(2);
+    const auto bassBox = slot(3);
+    const auto padBox = slot(4);
+    const auto exportBox = slot(5);
+
+    drawModule(g, inputBox, "INPUT",
+               state_.hasTrack() ? juce::String(state_.loadedFilename()) : "NO TRACK", input);
+    drawModule(g, analyzerBox, "ANALYZER",
+               stage == AnalysisState::Complete ? state_.bpmLabel() + " BPM" : "DSP", analyzer);
+    drawModule(g, harmonyBox, "HARMONY",
+               hasHarmony ? juce::String(state_.harmony()->key) : "MIDI", harmony);
+    drawModule(g, bassBox, "BASS ENGINE", "pattern", NodeState::Waiting);
+    drawModule(g, padBox, "PAD GENERATOR", "layer", NodeState::Waiting);
+    drawModule(g, exportBox, "EXPORT MIDI", "clip", exportState);
+
+    drawLink(g, inputBox, analyzerBox);
+    drawLink(g, analyzerBox, harmonyBox);
+    drawLink(g, harmonyBox, bassBox);
+    drawLink(g, bassBox, padBox);
+    drawLink(g, padBox, exportBox);
 }
 
 } // namespace sonora

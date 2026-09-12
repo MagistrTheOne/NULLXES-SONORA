@@ -8,33 +8,41 @@ namespace
 {
 juce::String computeLabel(const AppState& state)
 {
-    if (!state.backendOnline())
-        return "OFFLINE";
+    return state.backendOnline() ? "BACKEND ONLINE" : "BACKEND OFFLINE";
+}
+
+juce::String usageLabel(const AppState& state)
+{
     switch (state.analysisState())
     {
         case AnalysisState::Loading:
-            return "LOADING";
         case AnalysisState::Analyzing:
             return "ANALYZING";
-        case AnalysisState::Complete:
-            return "COMPLETE";
         case AnalysisState::Failed:
             return "FAILED";
+        case AnalysisState::Complete:
+            return "COMPLETE";
         case AnalysisState::Empty:
         default:
-            return "READY";
+            return state.backendOnline() ? "IDLE" : "OFFLINE";
     }
 }
 
 juce::String resultLabel(const AppState& state)
 {
-    if (state.analysisState() == AnalysisState::Failed)
-        return state.lastError().isEmpty() ? "FAILED" : state.lastError();
-    if (state.analysisState() == AnalysisState::Complete)
-        return state.issueCountLabel();
-    if (state.analysisState() == AnalysisState::Analyzing || state.analysisState() == AnalysisState::Loading)
-        return "PENDING";
-    return "---";
+    switch (state.analysisState())
+    {
+        case AnalysisState::Loading:
+        case AnalysisState::Analyzing:
+            return "WAITING";
+        case AnalysisState::Complete:
+            return state.issueCountLabel();
+        case AnalysisState::Failed:
+            return state.fault().reason.isEmpty() ? "FAILED" : state.fault().reason;
+        case AnalysisState::Empty:
+        default:
+            return "---";
+    }
 }
 } // namespace
 
@@ -56,14 +64,14 @@ void StatusRail::paint(juce::Graphics& g)
     auto paintCell = [&](juce::Rectangle<int> area, const juce::String& k, const juce::String& v) {
         g.setColour(colors::mutedForeground());
         g.setFont(type::label(9.0f));
-        g.drawFittedText(k, area.removeFromLeft(72), juce::Justification::centredLeft, 1);
+        g.drawText(k, area.removeFromLeft(72), juce::Justification::centredLeft, true);
         g.setColour(colors::foreground());
         g.setFont(type::label(10.0f));
-        g.drawFittedText(v, area, juce::Justification::centredLeft, 1);
+        g.drawText(v, area, juce::Justification::centredLeft, true);
     };
 
     paintCell(bounds.removeFromLeft(cell), "COMPUTE", computeLabel(state_));
-    paintCell(bounds.removeFromLeft(cell), "USAGE", state_.backendOnline() ? "LOCAL" : "---");
+    paintCell(bounds.removeFromLeft(cell), "USAGE", usageLabel(state_));
     paintCell(bounds, "RESULT", resultLabel(state_));
 }
 

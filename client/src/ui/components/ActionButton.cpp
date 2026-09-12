@@ -41,7 +41,7 @@ void ActionButton::paint(juce::Graphics& g)
 
     g.setColour(isEnabled() ? colors::foreground() : colors::mutedForeground());
     g.setFont(type::label(11.0f));
-    g.drawFittedText(label_, bounds.reduced(10, 0), juce::Justification::centred, 1);
+    g.drawText(label_, bounds.reduced(10, 0), juce::Justification::centred, true);
 }
 
 void ActionButton::mouseEnter(const juce::MouseEvent&)

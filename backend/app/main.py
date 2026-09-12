@@ -28,9 +28,11 @@ async def lifespan(_app: FastAPI):
     async with factory() as session:
         await seed_owner_profile(session)
     logger.info(
-        "SONORA started analyzer_version=%s task_runner=%s",
+        "SONORA started analyzer_version=%s task_runner=%s llm=%s sqlite=%s",
         settings.analyzer_version,
         settings.task_runner,
+        settings.llm_provider,
+        settings.is_sqlite,
     )
     yield
     engine = get_async_engine()

@@ -15,6 +15,7 @@ from app.ai.schemas.recommendation import (
 from app.core.exceptions import NotFoundError
 from app.models.analysis import Analysis
 from app.models.recommendation import Recommendation
+from app.services.dsp_advice import heuristic_recommendations
 from app.services.events import EventService
 from app.services.memory import get_owner_profile, memory_context
 
@@ -60,6 +61,8 @@ async def generate_recommendations(
     if analysis_override is not None:
         features = analysis_override.get("features") or analysis_override
         issues = analysis_override.get("issues") or []
+        if llm.name == "off":
+            return heuristic_recommendations(issues)
         messages = build_messages(
             analysis=features,
             issues=issues,
@@ -79,6 +82,35 @@ async def generate_recommendations(
     )
     if analysis.status != "completed" or not analysis.features:
         raise NotFoundError("Analysis is not completed")
+
+    if llm.name == "off":
+        parsed = heuristic_recommendations(analysis.issues)
+        if not persist:
+            return parsed
+        row = Recommendation(
+            analysis_id=analysis.id,
+            audio_id=analysis.audio_id,
+            provider=llm.name,
+            model=llm.model,
+            items=[item.model_dump() for item in parsed.items],
+        )
+        session.add(row)
+        await session.flush()
+        await EventService.append(
+            session,
+            event_type="recommendation_generated",
+            entity_type="audio",
+            entity_id=analysis.audio_id,
+            payload={
+                "recommendation_id": str(row.id),
+                "analysis_id": str(analysis.id),
+                "provider": llm.name,
+                "model": llm.model,
+            },
+        )
+        await session.commit()
+        await session.refresh(row)
+        return row
 
     messages = build_messages(
         analysis=analysis.features,

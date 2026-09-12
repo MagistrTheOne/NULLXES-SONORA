@@ -6,54 +6,56 @@ namespace sonora
 {
 namespace
 {
-void styleTab(juce::TextButton& button, bool active)
+void styleTab(juce::TextButton& button, bool active, bool enabled)
 {
+    button.setEnabled(enabled);
     button.setColour(juce::TextButton::buttonColourId, juce::Colours::transparentBlack);
     button.setColour(juce::TextButton::buttonOnColourId, juce::Colours::transparentBlack);
-    button.setColour(juce::TextButton::textColourOffId, active ? Theme::text() : Theme::muted());
+    button.setColour(juce::TextButton::textColourOffId, !enabled ? Theme::muted().withAlpha(0.45f)
+                                                                : (active ? Theme::text() : Theme::muted()));
     button.setColour(juce::TextButton::textColourOnId, Theme::text());
 }
 } // namespace
 
 TabBar::TabBar(AppState& state) : state_(state)
 {
-    bind(overview, WorkspaceTab::Overview);
-    bind(spectrum, WorkspaceTab::Spectrum);
-    bind(harmony, WorkspaceTab::Harmony);
-    bind(generate, WorkspaceTab::Generate);
-    bind(mix, WorkspaceTab::Mix);
-    bind(master, WorkspaceTab::Master);
+    generate.setButtonText("CREATE");
+    bind(overview, WorkspaceTab::Overview, true);
+    bind(spectrum, WorkspaceTab::Spectrum, true);
+    bind(harmony, WorkspaceTab::Harmony, true);
+    bind(generate, WorkspaceTab::Generate, true);
+    bind(mix, WorkspaceTab::Mix, false);
+    bind(master, WorkspaceTab::Master, false);
 }
 
-void TabBar::bind(juce::TextButton& button, WorkspaceTab tab)
+void TabBar::bind(juce::TextButton& button, WorkspaceTab tab, bool enabled)
 {
     addAndMakeVisible(button);
-    button.onClick = [this, tab] { state_.setTab(tab); };
-    styleTab(button, state_.tab() == tab);
+    if (enabled)
+        button.onClick = [this, tab] { state_.setTab(tab); };
+    styleTab(button, state_.tab() == tab, enabled);
 }
 
 void TabBar::paint(juce::Graphics& g)
 {
-    styleTab(overview, state_.tab() == WorkspaceTab::Overview);
-    styleTab(spectrum, state_.tab() == WorkspaceTab::Spectrum);
-    styleTab(harmony, state_.tab() == WorkspaceTab::Harmony);
-    styleTab(generate, state_.tab() == WorkspaceTab::Generate);
-    styleTab(mix, state_.tab() == WorkspaceTab::Mix);
-    styleTab(master, state_.tab() == WorkspaceTab::Master);
+    styleTab(overview, state_.tab() == WorkspaceTab::Overview, true);
+    styleTab(spectrum, state_.tab() == WorkspaceTab::Spectrum, true);
+    styleTab(harmony, state_.tab() == WorkspaceTab::Harmony, true);
+    styleTab(generate, state_.tab() == WorkspaceTab::Generate, true);
+    styleTab(mix, false, false);
+    styleTab(master, false, false);
 
-    const auto active = [this] {
-        switch (state_.tab())
-        {
-            case WorkspaceTab::Overview: return &overview;
-            case WorkspaceTab::Spectrum: return &spectrum;
-            case WorkspaceTab::Harmony: return &harmony;
-            case WorkspaceTab::Generate: return &generate;
-            case WorkspaceTab::Mix: return &mix;
-            case WorkspaceTab::Master: return &master;
-        }
-        return &overview;
-    }();
+    juce::TextButton* active = &overview;
+    switch (state_.tab())
+    {
+        case WorkspaceTab::Spectrum: active = &spectrum; break;
+        case WorkspaceTab::Harmony: active = &harmony; break;
+        case WorkspaceTab::Generate: active = &generate; break;
+        default: break;
+    }
 
+    g.setColour(Theme::border());
+    g.fillRect(0, getHeight() - 1, getWidth(), 1);
     g.setColour(Theme::accent());
     g.fillRect(active->getBounds().withHeight(1).withY(getHeight() - 1));
 }
@@ -61,12 +63,15 @@ void TabBar::paint(juce::Graphics& g)
 void TabBar::resized()
 {
     auto row = getLocalBounds();
-    const int w = row.getWidth() / 6;
-    overview.setBounds(row.removeFromLeft(w));
-    spectrum.setBounds(row.removeFromLeft(w));
-    harmony.setBounds(row.removeFromLeft(w));
-    generate.setBounds(row.removeFromLeft(w));
-    mix.setBounds(row.removeFromLeft(w));
+    const int live = (row.getWidth() * 4) / 6;
+    const int dead = row.getWidth() - live;
+    auto active = row.removeFromLeft(live);
+    const int w = active.getWidth() / 4;
+    overview.setBounds(active.removeFromLeft(w));
+    spectrum.setBounds(active.removeFromLeft(w));
+    harmony.setBounds(active.removeFromLeft(w));
+    generate.setBounds(active);
+    mix.setBounds(row.removeFromLeft(dead / 2));
     master.setBounds(row);
 }
 

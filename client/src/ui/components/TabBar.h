@@ -23,7 +23,7 @@ private:
     juce::TextButton mix { "MIX" };
     juce::TextButton master { "MASTER" };
 
-    void bind(juce::TextButton& button, WorkspaceTab tab);
+    void bind(juce::TextButton& button, WorkspaceTab tab, bool enabled);
 };
 
 } // namespace sonora

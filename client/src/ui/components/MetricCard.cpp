@@ -43,19 +43,19 @@ void MetricCard::paint(juce::Graphics& g)
     auto bounds = getLocalBounds().reduced(16, 14);
     g.setColour(colors::muted());
     g.setFont(type::label(10.0f));
-    g.drawFittedText(label_, bounds.removeFromTop(16), juce::Justification::centredLeft, 1);
+    g.drawText(label_, bounds.removeFromTop(16), juce::Justification::centredLeft, true);
 
     bounds.removeFromTop(6);
     g.setColour(empty_ ? colors::mutedForeground() : colors::foreground());
     g.setFont(type::display(22.0f));
-    g.drawFittedText(value_, bounds.removeFromTop(28), juce::Justification::centredLeft, 1);
+    g.drawText(value_, bounds.removeFromTop(28), juce::Justification::centredLeft, true);
 
     if (hint_.isNotEmpty())
     {
         bounds.removeFromTop(4);
         g.setColour(colors::mutedForeground());
         g.setFont(type::body(11.0f));
-        g.drawFittedText(hint_, bounds, juce::Justification::centredLeft, 1);
+        g.drawText(hint_, bounds, juce::Justification::centredLeft, true);
     }
 }
 

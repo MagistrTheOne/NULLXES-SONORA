@@ -57,7 +57,7 @@ void IssueRow::paint(juce::Graphics& g)
     {
         g.setColour(colors::mutedForeground());
         g.setFont(type::body(12.0f));
-        g.drawFittedText(title_, bounds.reduced(4, 0), juce::Justification::centredLeft, 1);
+        g.drawText(title_, bounds.reduced(4, 0), juce::Justification::centredLeft, true);
         return;
     }
 
@@ -72,15 +72,15 @@ void IssueRow::paint(juce::Graphics& g)
 
     g.setColour(colors::foreground());
     g.setFont(type::label(11.0f));
-    g.drawFittedText(title_, text.removeFromTop(16), juce::Justification::centredLeft, 1);
+    g.drawText(title_, text.removeFromTop(16), juce::Justification::centredLeft, true);
     g.setColour(colors::muted());
     g.setFont(type::body(11.0f));
-    g.drawFittedText(detail_, text, juce::Justification::centredLeft, 1);
+    g.drawText(detail_, text, juce::Justification::centredLeft, true);
 
     g.setColour(colors::muted());
     g.setFont(type::mono(11.0f));
     auto value = meter.removeFromRight(42);
-    g.drawFittedText(juce::String(severity_, 2), value, juce::Justification::centredRight, 1);
+    g.drawText(juce::String(severity_, 2), value, juce::Justification::centredRight, true);
 
     auto track = meter.withSizeKeepingCentre(meter.getWidth() - 8, 3);
     g.setColour(colors::border());

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "state/AppState.h"
+#include "ui/components/ActionButton.h"
 
 #include <juce_gui_basics/juce_gui_basics.h>
 
@@ -16,10 +17,10 @@ public:
 
 private:
     AppState& state_;
-    juce::TextButton chords { "CHORDS" };
-    juce::TextButton bassline { "BASSLINE" };
-    juce::TextButton pad { "PAD" };
-    juce::TextButton arrangement { "ARRANGEMENT" };
+    ActionButton chords_;
+    ActionButton bassline_;
+    ActionButton pad_;
+    ActionButton arrangement_;
 };
 
 } // namespace sonora

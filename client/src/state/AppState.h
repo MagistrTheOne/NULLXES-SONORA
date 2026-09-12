@@ -1,6 +1,7 @@
 #pragma once
 
 #include "backend/ApiClient.h"
+#include "backend/Fault.h"
 #include "models/AudioAnalysis.h"
 #include "models/Insight.h"
 #include "models/Issue.h"
@@ -43,7 +44,8 @@ public:
 
     AnalysisState analysisState() const { return analysisState_; }
     bool backendOnline() const { return backendOnline_; }
-    const juce::String& lastError() const { return lastError_; }
+    const Fault& fault() const { return fault_; }
+    const juce::String& lastError() const { return fault_.reason; }
     float analyzeProgress() const { return analyzeProgress_; }
 
     bool hasTrack() const { return hasTrack_; }
@@ -62,6 +64,7 @@ public:
     juce::String keyLabel() const;
     juce::String sampleRateLabel() const;
     juce::String channelLabel() const;
+    juce::String bitDepthLabel() const;
     juce::String issueCountLabel() const;
     std::vector<juce::String> profileLines() const;
 
@@ -85,7 +88,7 @@ private:
     bool backendOnline_ = false;
     bool hasTrack_ = false;
     float analyzeProgress_ = 0.0f;
-    juce::String lastError_;
+    Fault fault_;
     juce::String audioId_;
     juce::String analysisId_;
     std::string loadedFilename_;

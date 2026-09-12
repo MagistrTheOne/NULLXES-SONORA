@@ -45,6 +45,10 @@ target_sources(SONORA PRIVATE
     src/app/MainWindow.cpp
     src/state/AppState.h
     src/state/AppState.cpp
+    src/backend/ClientLog.h
+    src/backend/Fault.h
+    src/backend/HttpTransport.h
+    src/backend/HttpTransport.cpp
     src/backend/Dto.h
     src/backend/Dto.cpp
     src/backend/ApiClient.h
@@ -100,3 +104,7 @@ target_link_libraries(SONORA PRIVATE
     juce::juce_recommended_config_flags
     juce::juce_recommended_warning_flags
 )
+
+if(WIN32)
+    target_link_libraries(SONORA PRIVATE winhttp)
+endif()

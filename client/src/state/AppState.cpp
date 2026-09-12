@@ -1,11 +1,35 @@
 #include "state/AppState.h"
 
+#include "backend/ClientLog.h"
 #include "backend/Dto.h"
 
 #include <thread>
 
 namespace sonora
 {
+namespace
+{
+models::Insight insightFromIssue(const models::Issue& issue)
+{
+    models::Insight row;
+    row.issue = issue.type;
+    row.reason = issue.detail.empty() ? issue.type : issue.detail;
+    row.confidence = issue.severity;
+    row.operation = "Dynamic EQ";
+    if (issue.type == "clipping")
+        row.action = "Reduce peak gain";
+    else if (issue.type == "narrow_stereo")
+        row.action = "Widen mid/side";
+    else if (issue.type == "low_dynamic_range")
+        row.action = "Restore dynamics";
+    else
+    {
+        row.action = "Create EQ profile";
+        row.frequencyHz = issue.type == "frequency_conflict" ? 250.0f : 120.0f;
+    }
+    return row;
+}
+} // namespace
 
 AppState::AppState()
 {
@@ -76,6 +100,11 @@ juce::String AppState::channelLabel() const
     return juce::String(analysis_->channels) + " ch";
 }
 
+juce::String AppState::bitDepthLabel() const
+{
+    return analysis_ ? "24 bit" : "Waiting";
+}
+
 juce::String AppState::issueCountLabel() const
 {
     return juce::String((int) issues_.size()) + (issues_.size() == 1 ? " ISSUE" : " ISSUES");
@@ -102,6 +131,8 @@ std::vector<juce::String> AppState::profileLines() const
 
 void AppState::setTab(WorkspaceTab tab)
 {
+    if (tab == WorkspaceTab::Mix || tab == WorkspaceTab::Master)
+        return;
     tab_ = tab;
     notify();
 }
@@ -118,7 +149,7 @@ void AppState::clearTrack()
     audioId_.clear();
     analysisId_.clear();
     analyzeProgress_ = 0.0f;
-    lastError_.clear();
+    fault_ = {};
     analysisState_ = AnalysisState::Empty;
     notify();
 }
@@ -130,10 +161,10 @@ void AppState::pingHealth()
         auto profileJson = ok ? api_.getProfile() : juce::var();
         applyOnMessage([this, ok, profileJson] {
             backendOnline_ = ok;
-            if (!ok)
-                lastError_ = api_.lastError();
-            else if (analysisState_ == AnalysisState::Empty)
-                lastError_.clear();
+            if (!ok && analysisState_ == AnalysisState::Empty)
+                fault_ = api_.lastFault();
+            else if (ok && analysisState_ == AnalysisState::Empty)
+                fault_ = {};
             if (ok && !profileJson.isVoid())
                 profile_ = dto::parseProfile(profileJson);
             notify();
@@ -143,6 +174,7 @@ void AppState::pingHealth()
 
 void AppState::analyzeFile(const juce::File& file)
 {
+    clientLog("AppState analyzeFile " + file.getFullPathName());
     hasTrack_ = true;
     loadedFilename_ = file.getFileName().toStdString();
     analysis_.reset();
@@ -150,9 +182,10 @@ void AppState::analyzeFile(const juce::File& file)
     insights_.clear();
     harmony_.reset();
     eqProfile_.reset();
-    lastError_.clear();
+    fault_ = {};
     analyzeProgress_ = 0.08f;
     analysisState_ = AnalysisState::Loading;
+    clientLog("AppState analyzeFile " + file.getFullPathName() + " bytes=" + juce::String(file.getSize()));
     notify();
 
     runAsync([this, file] {
@@ -167,7 +200,9 @@ void AppState::analyzeFile(const juce::File& file)
         {
             applyOnMessage([this] {
                 analysisState_ = AnalysisState::Failed;
-                lastError_ = api_.lastError();
+                fault_ = api_.lastFault();
+                if (fault_.empty())
+                    fault_ = { "UPLOAD FAILED", 0, "unknown error" };
                 notify();
             });
             return;
@@ -179,7 +214,7 @@ void AppState::analyzeFile(const juce::File& file)
         {
             applyOnMessage([this] {
                 analysisState_ = AnalysisState::Failed;
-                lastError_ = "Analyze response missing audio_id";
+                fault_ = { "UPLOAD FAILED", 0, "analyze response missing audio_id" };
                 notify();
             });
             return;
@@ -206,16 +241,18 @@ void AppState::analyzeFile(const juce::File& file)
                     {
                         analysis_ = parsed;
                         issues_ = parsedIssues;
+                        insights_.clear();
+                        for (const auto& issue : parsedIssues)
+                            insights_.push_back(insightFromIssue(issue));
                         analysisState_ = AnalysisState::Complete;
                         analyzeProgress_ = 1.0f;
-                        lastError_.clear();
+                        fault_ = {};
                         notify();
-                        requestEngineeringReport();
                     }
                     else
                     {
                         analysisState_ = AnalysisState::Failed;
-                        lastError_ = "Analysis payload incomplete";
+                        fault_ = { "ANALYSIS FAILED", 0, "payload incomplete" };
                         notify();
                     }
                 });
@@ -226,9 +263,9 @@ void AppState::analyzeFile(const juce::File& file)
             {
                 applyOnMessage([this, detail] {
                     analysisState_ = AnalysisState::Failed;
-                    lastError_ = dto::parseError(detail);
-                    if (lastError_.isEmpty())
-                        lastError_ = "Analysis failed";
+                    fault_ = { "ANALYSIS FAILED", 0, dto::parseError(detail) };
+                    if (fault_.reason.isEmpty())
+                        fault_.reason = "analysis failed";
                     notify();
                 });
                 return;
@@ -239,7 +276,7 @@ void AppState::analyzeFile(const juce::File& file)
 
         applyOnMessage([this] {
             analysisState_ = AnalysisState::Failed;
-            lastError_ = "Analysis timed out";
+            fault_ = { "ANALYSIS FAILED", 0, "timed out" };
             notify();
         });
     });
@@ -254,14 +291,14 @@ void AppState::requestEngineeringReport()
         applyOnMessage([this, json] {
             if (json.isVoid())
             {
-                lastError_ = api_.lastError();
+                fault_ = api_.lastFault();
             }
             else
             {
                 insights_ = dto::parseInsights(json);
                 if (!issues_.empty() && !insights_.empty())
                     insights_.front().confidence = issues_.front().severity;
-                lastError_.clear();
+                fault_ = {};
             }
             notify();
         });
@@ -277,11 +314,11 @@ void AppState::requestHarmony()
         auto json = api_.generateHarmony(analysisId_);
         applyOnMessage([this, json] {
             if (json.isVoid())
-                lastError_ = api_.lastError();
+                fault_ = api_.lastFault();
             else
             {
                 harmony_ = dto::parseHarmony(json);
-                lastError_.clear();
+                fault_ = {};
             }
             notify();
         });

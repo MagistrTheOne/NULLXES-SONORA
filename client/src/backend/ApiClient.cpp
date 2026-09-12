@@ -1,147 +1,186 @@
 #include "backend/ApiClient.h"
 
+#include "backend/ClientLog.h"
 #include "backend/Dto.h"
 
 namespace sonora
 {
-
-ApiClient::ApiClient(juce::String baseUrl)
-    : baseUrl_(std::move(baseUrl))
+namespace
 {
-    if (baseUrl_.endsWithChar('/'))
-        baseUrl_ = baseUrl_.dropLastCharacters(1);
+juce::String resolveBaseUrl()
+{
+    auto url = juce::SystemStats::getEnvironmentVariable("SONORA_API_URL", "http://127.0.0.1:8000").trim();
+    if (url.endsWithChar('/'))
+        url = url.dropLastCharacters(1);
+    return url;
 }
 
-juce::var ApiClient::readJson(std::unique_ptr<juce::InputStream> stream) const
+juce::String clipBody(const juce::String& body)
 {
-    if (stream == nullptr)
-        return {};
-    const auto text = stream->readEntireStreamAsString();
-    auto parsed = juce::JSON::parse(text);
-    if (parsed.isVoid())
-        lastError_ = text.isEmpty() ? "Empty response" : text.substring(0, 180);
-    return parsed;
+    return body.substring(0, 400);
 }
 
-juce::var ApiClient::getJson(const juce::String& path) const
+juce::String reasonFromHttp(int status, const juce::var& json)
 {
-    lastError_.clear();
-    int status = 0;
-    juce::URL url(baseUrl_ + path);
-    auto stream = url.createInputStream(
-        juce::URL::InputStreamOptions(juce::URL::ParameterHandling::inAddress)
-            .withConnectionTimeoutMs(15000)
-            .withNumRedirectsToFollow(2)
-            .withStatusCode(&status));
-    if (stream == nullptr)
-    {
-        lastError_ = "Backend unreachable";
-        return {};
-    }
-    auto json = readJson(std::move(stream));
-    if (status >= 400)
-    {
-        lastError_ = dto::parseError(json);
-        if (lastError_.isEmpty())
-            lastError_ = "HTTP " + juce::String(status);
-        return {};
-    }
-    return json;
+    auto parsed = dto::parseError(json);
+    if (parsed.isNotEmpty())
+        return parsed;
+    if (status == 422)
+        return "validation error";
+    if (status == 413)
+        return "file too large";
+    if (status == 415)
+        return "unsupported media type";
+    if (status >= 500)
+        return "backend error";
+    if (status > 0)
+        return "HTTP " + juce::String(status);
+    return "unknown error";
+}
+} // namespace
+
+ApiClient::ApiClient()
+    : baseUrl_(resolveBaseUrl())
+{
+    clientLog("ApiClient baseUrl=" + baseUrl_);
 }
 
-juce::var ApiClient::postJson(const juce::String& path, const juce::String& body) const
+juce::String ApiClient::mimeFor(const juce::File& file) const
 {
-    lastError_.clear();
-    int status = 0;
-    juce::URL url(baseUrl_ + path);
-    auto stream = url.withPOSTData(body).createInputStream(
-        juce::URL::InputStreamOptions(juce::URL::ParameterHandling::inPostData)
-            .withExtraHeaders("Content-Type: application/json\r\n")
-            .withHttpRequestCmd("POST")
-            .withConnectionTimeoutMs(120000)
-            .withNumRedirectsToFollow(2)
-            .withStatusCode(&status));
-    if (stream == nullptr)
+    const auto ext = file.getFileExtension().toLowerCase();
+    if (ext == ".wav")
+        return "audio/wav";
+    if (ext == ".mp3")
+        return "audio/mpeg";
+    if (ext == ".flac")
+        return "audio/flac";
+    return "application/octet-stream";
+}
+
+juce::var ApiClient::accept(const HttpResult& result, const juce::String& title) const
+{
+    lastFault_ = {};
+    clientLog(title + " HTTP=" + juce::String(result.status)
+              + " transport=" + (result.transportError.isEmpty() ? "-" : result.transportError)
+              + " body=" + clipBody(result.body));
+
+    if (result.transportError.isNotEmpty())
     {
-        lastError_ = "Backend request failed";
+        lastFault_.title = title + " FAILED";
+        lastFault_.httpStatus = result.status;
+        lastFault_.reason = result.transportError;
         return {};
     }
-    auto json = readJson(std::move(stream));
-    if (status >= 400)
+
+    auto json = juce::JSON::parse(result.body);
+    if (result.status >= 400)
     {
-        lastError_ = dto::parseError(json);
-        if (lastError_.isEmpty())
-            lastError_ = "HTTP " + juce::String(status);
+        lastFault_.title = title + " FAILED";
+        lastFault_.httpStatus = result.status;
+        lastFault_.reason = reasonFromHttp(result.status, json);
         return {};
     }
+
+    if (result.body.isEmpty())
+    {
+        lastFault_.title = title + " FAILED";
+        lastFault_.httpStatus = result.status;
+        lastFault_.reason = "empty response";
+        return {};
+    }
+
+    if (json.isVoid())
+    {
+        lastFault_.title = title + " FAILED";
+        lastFault_.httpStatus = result.status;
+        lastFault_.reason = "invalid JSON";
+        return {};
+    }
+
     return json;
 }
 
 bool ApiClient::health() const
 {
-    auto json = getJson("/health");
+    const auto url = baseUrl_ + "/health";
+    clientLog("GET " + url);
+    auto json = accept(HttpTransport().get(url, 8000), "HEALTH");
     return dto::parseHealthOk(json);
 }
 
 juce::var ApiClient::analyzeFile(const juce::File& file) const
 {
-    lastError_.clear();
+    lastFault_ = {};
+    const auto path = file.getFullPathName();
+    const auto name = file.getFileName();
+    const auto size = file.getSize();
+    const auto mime = mimeFor(file);
+    const auto url = baseUrl_ + "/api/v1/audio/analyze";
     const auto ext = file.getFileExtension().toLowerCase();
-    juce::String mime = "application/octet-stream";
-    if (ext == ".wav")
-        mime = "audio/wav";
-    else if (ext == ".mp3")
-        mime = "audio/mpeg";
-    else if (ext == ".flac")
-        mime = "audio/flac";
 
-    int status = 0;
-    juce::URL url(baseUrl_ + "/api/v1/audio/analyze");
-    auto stream = url.withFileToUpload("file", file, mime)
-                      .createInputStream(
-                          juce::URL::InputStreamOptions(juce::URL::ParameterHandling::inPostData)
-                              .withHttpRequestCmd("POST")
-                              .withConnectionTimeoutMs(180000)
-                              .withNumRedirectsToFollow(2)
-                              .withStatusCode(&status));
-    if (stream == nullptr)
+    clientLog("LOAD TRACK path=" + path);
+    clientLog("filename=" + name + " size=" + juce::String(size) + " mime=" + mime);
+    clientLog("POST " + url);
+
+    if (!file.existsAsFile())
     {
-        lastError_ = "Upload failed";
+        lastFault_ = { "UPLOAD FAILED", 0, "file not found" };
+        clientLog("UPLOAD FAILED reason=file not found");
         return {};
     }
-    auto json = readJson(std::move(stream));
-    if (status >= 400)
+    if (size <= 0)
     {
-        lastError_ = dto::parseError(json);
-        if (lastError_.isEmpty())
-            lastError_ = "HTTP " + juce::String(status);
+        lastFault_ = { "UPLOAD FAILED", 0, "file is empty" };
+        clientLog("UPLOAD FAILED reason=file is empty");
         return {};
     }
-    return json;
+    if (ext != ".wav" && ext != ".mp3" && ext != ".flac")
+    {
+        lastFault_ = { "UPLOAD FAILED", 0, "unsupported format (wav/mp3/flac)" };
+        clientLog("UPLOAD FAILED reason=unsupported format");
+        return {};
+    }
+
+    juce::MemoryBlock data;
+    if (!file.loadFileAsData(data) || data.getSize() == 0)
+    {
+        lastFault_ = { "UPLOAD FAILED", 0, "cannot read file" };
+        clientLog("UPLOAD FAILED reason=cannot read file");
+        return {};
+    }
+
+    const auto result = HttpTransport().postMultipartFile(url, "file", name, mime, data, 180000);
+    return accept(result, "UPLOAD");
 }
 
 juce::var ApiClient::getAudio(const juce::String& audioId) const
 {
-    return getJson("/api/v1/audio/" + audioId);
+    const auto url = baseUrl_ + "/api/v1/audio/" + audioId;
+    clientLog("GET " + url);
+    return accept(HttpTransport().get(url, 15000), "REQUEST");
 }
 
 juce::var ApiClient::generateReport(const juce::String& analysisId) const
 {
-    return postJson(
-        "/api/v1/recommendation/generate",
-        R"({"analysis_id":")" + analysisId + R"("})");
+    const auto url = baseUrl_ + "/api/v1/recommendation/generate";
+    const auto body = R"({"analysis_id":")" + analysisId + R"("})";
+    clientLog("POST " + url + " body=" + body);
+    return accept(HttpTransport().postJson(url, body, 120000), "REPORT");
 }
 
 juce::var ApiClient::generateHarmony(const juce::String& analysisId) const
 {
-    return postJson(
-        "/api/v1/generate/harmony",
-        R"({"analysis_id":")" + analysisId + R"("})");
+    const auto url = baseUrl_ + "/api/v1/generate/harmony";
+    const auto body = R"({"analysis_id":")" + analysisId + R"("})";
+    clientLog("POST " + url + " body=" + body);
+    return accept(HttpTransport().postJson(url, body, 120000), "HARMONY");
 }
 
 juce::var ApiClient::getProfile() const
 {
-    return getJson("/api/v1/profile");
+    const auto url = baseUrl_ + "/api/v1/profile";
+    clientLog("GET " + url);
+    return accept(HttpTransport().get(url, 8000), "PROFILE");
 }
 
 } // namespace sonora

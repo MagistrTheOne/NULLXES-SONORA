@@ -1,6 +1,10 @@
 .env
 .venv/
 venv/
+client/build/
+client/_deps/
+plugin/build/
+studio/node_modules/
 __pycache__/
 *.py[cod]
 *$py.class

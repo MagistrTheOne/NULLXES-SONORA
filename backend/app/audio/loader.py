@@ -19,18 +19,28 @@ class LoadedAudio:
     duration_sec: float
 
 
-def _ensure_channel_first(samples: np.ndarray) -> np.ndarray:
+def from_soundfile_layout(data: np.ndarray) -> np.ndarray:
+    """soundfile: (frames,) or (frames, channels) -> mono or (channels, frames)."""
+    samples = np.asarray(data, dtype=np.float32)
     if samples.ndim == 1:
         return samples
     if samples.ndim != 2:
         raise AnalysisError("Unexpected audio shape")
-    rows, cols = samples.shape
-    # soundfile: (frames, channels<=8). librosa: (channels<=8, frames).
-    if cols <= 8 and rows > cols:
-        return samples.T
-    if rows <= 8 and cols > rows:
-        return samples
-    return samples.T if rows > cols else samples
+    return samples.T
+
+
+def from_librosa_layout(data: np.ndarray) -> np.ndarray:
+    """librosa: (n,) or (channels, frames). Already channel-first — do not guess."""
+    samples = np.asarray(data, dtype=np.float32)
+    if samples.ndim not in (1, 2):
+        raise AnalysisError("Unexpected audio shape")
+    return samples
+
+
+def _describe(samples: np.ndarray) -> tuple[int, int]:
+    if samples.ndim == 1:
+        return 1, int(samples.shape[0])
+    return int(samples.shape[0]), int(samples.shape[1])
 
 
 def load_audio(path: Path) -> LoadedAudio:
@@ -41,20 +51,13 @@ def load_audio(path: Path) -> LoadedAudio:
         raise UnsupportedMediaError(f"Unsupported audio format: .{ext}")
 
     try:
-        data, sample_rate = sf.read(str(path), always_2d=False)
-        samples = np.asarray(data, dtype=np.float32)
+        data, sample_rate = sf.read(str(path), always_2d=True)
+        samples = from_soundfile_layout(data)
     except Exception:
-        samples, sample_rate = librosa.load(str(path), sr=None, mono=False)
-        samples = np.asarray(samples, dtype=np.float32)
+        data, sample_rate = librosa.load(str(path), sr=None, mono=False)
+        samples = from_librosa_layout(data)
 
-    samples = _ensure_channel_first(samples)
-    if samples.ndim == 1:
-        channels = 1
-        n_frames = int(samples.shape[0])
-    else:
-        channels = int(samples.shape[0])
-        n_frames = int(samples.shape[1])
-
+    channels, n_frames = _describe(samples)
     if n_frames == 0:
         raise AnalysisError("Audio file is empty")
 

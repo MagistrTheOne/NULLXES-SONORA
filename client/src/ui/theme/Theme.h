@@ -61,4 +61,25 @@ inline void drawMuted(juce::Graphics& g, juce::Rectangle<int> bounds, const juce
     g.setFont(type::label(10.0f));
     g.drawText(text, bounds, juce::Justification::centredLeft, true);
 }
+
+inline void drawBlocks(juce::Graphics& g, juce::Rectangle<int> bounds, float value, int slots = 10)
+{
+    const int filled = juce::jlimit(0, slots, juce::roundToInt(juce::jlimit(0.0f, 1.0f, value) * (float) slots));
+    const int gap = 3;
+    const int w = juce::jmax(2, (bounds.getWidth() - gap * (slots - 1)) / slots);
+    for (int i = 0; i < slots; ++i)
+    {
+        g.setColour(i < filled ? colors::foreground() : colors::border());
+        g.fillRect(bounds.getX() + i * (w + gap), bounds.getY(), w, bounds.getHeight());
+    }
+}
+
+inline juce::Colour riskColour(const juce::String& risk)
+{
+    if (risk == "high")
+        return colors::destructive();
+    if (risk == "medium")
+        return colors::warning();
+    return colors::mutedForeground();
+}
 } // namespace sonora::Theme

@@ -24,7 +24,7 @@ class Settings(BaseSettings):
 
     storage_path: Path = Field(default=Path("./storage"))
     max_upload_mb: int = Field(default=80, ge=1)
-    analyzer_version: str = Field(default="SONORA_DSP_v0.1")
+    analyzer_version: str = Field(default="SONORA_DSP_v0.3")
 
     llm_provider: str = Field(default="openai")
     openai_api_key: str = Field(default="")

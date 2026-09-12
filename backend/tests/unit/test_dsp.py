@@ -28,6 +28,9 @@ def test_stereo_feature_contract(stereo_wav) -> None:
     assert key.method == "chroma_cqt"
     assert key.key is None or isinstance(key.key, str)
     assert features.analyzer_version.startswith("SONORA_DSP_")
+    assert features.dna is not None
+    assert features.dna.identity.key.confidence == features.key_estimation.confidence
+    assert features.dna.structure.sections[0].end > 0
 
 
 def test_mono_has_zero_width(mono_wav) -> None:

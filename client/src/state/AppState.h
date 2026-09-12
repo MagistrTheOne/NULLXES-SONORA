@@ -29,11 +29,23 @@ enum class AnalysisState
 enum class WorkspaceTab
 {
     Overview,
+    Dna,
+    Structure,
     Spectrum,
     Harmony,
     Generate,
     Mix,
     Master
+};
+
+enum class CanvasNode
+{
+    Input,
+    Dna,
+    Structure,
+    Mix,
+    Harmony,
+    Export
 };
 
 class AppState : public juce::ChangeBroadcaster
@@ -59,6 +71,8 @@ public:
     const juce::String& audioId() const { return audioId_; }
     const juce::String& analysisId() const { return analysisId_; }
     WorkspaceTab tab() const { return tab_; }
+    CanvasNode selectedNode() const { return selectedNode_; }
+    const models::TrackDna* dna() const;
 
     juce::String bpmLabel() const;
     juce::String keyLabel() const;
@@ -69,6 +83,8 @@ public:
     std::vector<juce::String> profileLines() const;
 
     void setTab(WorkspaceTab tab);
+    void selectCanvasNode(CanvasNode node);
+    void focusArrangement();
     void pingHealth();
     void analyzeFile(const juce::File& file);
     void requestEngineeringReport();
@@ -99,6 +115,7 @@ private:
     std::optional<models::EqProfile> eqProfile_;
     models::SessionProfile profile_;
     WorkspaceTab tab_ { WorkspaceTab::Overview };
+    CanvasNode selectedNode_ { CanvasNode::Input };
 
     JUCE_DECLARE_WEAK_REFERENCEABLE(AppState)
 };

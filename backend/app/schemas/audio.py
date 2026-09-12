@@ -5,6 +5,7 @@ from uuid import UUID
 from pydantic import BaseModel, Field
 
 from app.schemas.common import ORMModel
+from app.schemas.dna import TrackDNA
 
 DynamicRangeLabel = Literal["low", "medium", "high"]
 
@@ -44,6 +45,7 @@ class AudioFeatures(BaseModel):
     frequency_distribution: FrequencyDistribution
     stereo_width: float = Field(ge=0.0, le=1.0)
     key_estimation: KeyEstimation
+    dna: TrackDNA | None = None
 
 
 class Issue(BaseModel):

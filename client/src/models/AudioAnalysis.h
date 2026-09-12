@@ -1,5 +1,7 @@
 #pragma once
 
+#include "models/TrackDna.h"
+
 #include <optional>
 #include <string>
 
@@ -34,6 +36,8 @@ struct AudioAnalysis
     float stereoWidth = 0.0f;
     KeyEstimation key;
     FrequencyDistribution bands;
+    bool hasDna = false;
+    TrackDna dna;
 };
 
 } // namespace sonora::models

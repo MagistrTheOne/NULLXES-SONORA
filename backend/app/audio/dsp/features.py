@@ -13,6 +13,8 @@ from app.audio.dsp.loudness import (
 )
 from app.audio.dsp.spectrum import frequency_distribution, spectrum_summary
 from app.audio.dsp.stereo import stereo_width
+from app.audio.intelligence.dna import build_track_dna
+from app.audio.intelligence.issues import detect_issues
 from app.audio.loader import LoadedAudio, to_mono
 from app.core.config import get_settings
 from app.schemas.audio import AudioFeatures
@@ -54,4 +56,6 @@ def extract_features(audio: LoadedAudio, analyzer_version: str | None = None) ->
         "stereo_width": round(stereo_width(samples), 4),
         "key_estimation": estimate_key(samples, sr),
     }
-    return AudioFeatures.model_validate(payload)
+    features = AudioFeatures.model_validate(payload)
+    issues = detect_issues(features)
+    return features.model_copy(update={"dna": build_track_dna(audio, features, issues)})

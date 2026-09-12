@@ -2,7 +2,7 @@
 
 from typing import Final, Literal
 
-ANALYZER_VERSION_DEFAULT: Final[str] = "SONORA_DSP_v0.1"
+ANALYZER_VERSION_DEFAULT: Final[str] = "SONORA_DSP_v0.3"
 
 ALLOWED_AUDIO_EXTENSIONS: Final[frozenset[str]] = frozenset({"wav", "mp3", "flac"})
 ALLOWED_AUDIO_MIME_TYPES: Final[frozenset[str]] = frozenset(

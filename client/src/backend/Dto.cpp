@@ -115,6 +115,144 @@ bool parseCompletedAnalysis(
         analysis.bands.air = (float) bands->getProperty("air");
     }
 
+    if (auto* dnaObj = obj(features->getProperty("dna")))
+    {
+        analysis.hasDna = true;
+        auto& dna = analysis.dna;
+        if (auto* identity = obj(dnaObj->getProperty("identity")))
+        {
+            dna.tempo = (float) identity->getProperty("tempo");
+            if (auto* key = obj(identity->getProperty("key")))
+            {
+                const auto keyName = key->getProperty("name").toString();
+                if (keyName.isNotEmpty() && keyName != "null")
+                    dna.keyName = keyName.toStdString();
+                dna.keyConfidence = (float) key->getProperty("confidence");
+            }
+            if (auto* genres = identity->getProperty("genre_profile").getArray())
+            {
+                for (const auto& item : *genres)
+                    dna.genreProfile.push_back(item.toString().toStdString());
+            }
+        }
+        if (auto* energy = obj(dnaObj->getProperty("energy")))
+        {
+            dna.energyMean = (float) energy->getProperty("mean");
+            dna.energyPeak = (float) energy->getProperty("peak");
+            if (auto* curve = energy->getProperty("curve").getArray())
+            {
+                for (const auto& item : *curve)
+                    dna.energyCurve.push_back((float) item);
+            }
+        }
+        if (auto* structure = obj(dnaObj->getProperty("structure")))
+        {
+            if (auto* sections = structure->getProperty("sections").getArray())
+            {
+                for (const auto& item : *sections)
+                {
+                    if (auto* section = obj(item))
+                    {
+                        models::StructureSection row;
+                        row.name = section->getProperty("name").toString().toStdString();
+                        row.start = (float) section->getProperty("start");
+                        row.end = (float) section->getProperty("end");
+                        row.energy = (float) section->getProperty("energy");
+                        row.bassEnergy = (float) section->getProperty("bass_energy");
+                        row.transientDensity = (float) section->getProperty("transient_density");
+                        row.stereoWidth = (float) section->getProperty("stereo_width");
+                        dna.sections.push_back(std::move(row));
+                    }
+                }
+            }
+        }
+
+        auto readAxis = [](juce::DynamicObject* axis, models::MixAxis& dest) {
+            if (axis == nullptr)
+                return;
+            dest.sub = (float) axis->getProperty("sub");
+            dest.low = (float) axis->getProperty("low");
+            dest.control = (float) axis->getProperty("control");
+            dest.value = (float) axis->getProperty("value");
+            dest.risk = axis->getProperty("risk").toString().toStdString();
+            dest.why = axis->getProperty("why").toString().toStdString();
+            dest.method = axis->getProperty("method").toString().toStdString();
+        };
+        if (auto* mix = obj(dnaObj->getProperty("mix_character")))
+        {
+            readAxis(obj(mix->getProperty("low_end")), dna.lowEnd);
+            readAxis(obj(mix->getProperty("brightness")), dna.brightness);
+            readAxis(obj(mix->getProperty("stereo")), dna.stereo);
+            readAxis(obj(mix->getProperty("dynamics")), dna.dynamics);
+        }
+        if (auto* translation = obj(dnaObj->getProperty("translation")))
+        {
+            if (auto* targets = translation->getProperty("targets").getArray())
+            {
+                for (const auto& item : *targets)
+                {
+                    if (auto* target = obj(item))
+                    {
+                        models::TranslationTarget row;
+                        row.name = target->getProperty("name").toString().toStdString();
+                        row.score = (float) target->getProperty("score");
+                        row.issue = target->getProperty("issue").toString().toStdString();
+                        row.reason = target->getProperty("reason").toString().toStdString();
+                        row.action = target->getProperty("action").toString().toStdString();
+                        if (row.issue == "null")
+                            row.issue.clear();
+                        if (row.reason == "null")
+                            row.reason.clear();
+                        if (row.action == "null")
+                            row.action.clear();
+                        dna.translation.push_back(std::move(row));
+                    }
+                }
+            }
+        }
+        if (auto* masking = obj(dnaObj->getProperty("masking")))
+        {
+            if (auto* roles = masking->getProperty("roles").getArray())
+            {
+                for (const auto& item : *roles)
+                    dna.maskingRoles.push_back(item.toString().toStdString());
+            }
+            if (auto* matrix = masking->getProperty("matrix").getArray())
+            {
+                for (const auto& rowVar : *matrix)
+                {
+                    std::vector<float> row;
+                    if (auto* cells = rowVar.getArray())
+                    {
+                        for (const auto& cell : *cells)
+                            row.push_back((float) cell);
+                    }
+                    dna.maskingMatrix.push_back(std::move(row));
+                }
+            }
+        }
+        if (auto* objects = dnaObj->getProperty("objects").getArray())
+        {
+            for (const auto& item : *objects)
+            {
+                if (auto* object = obj(item))
+                {
+                    models::SonoraObject row;
+                    row.type = object->getProperty("type").toString().toStdString();
+                    row.input = object->getProperty("input").toString().toStdString();
+                    row.status = object->getProperty("status").toString().toStdString();
+                    if (auto* parameters = obj(object->getProperty("parameters")))
+                    {
+                        row.frequency = (float) parameters->getProperty("frequency");
+                        row.gain = (float) parameters->getProperty("gain");
+                        row.q = (float) parameters->getProperty("q");
+                    }
+                    dna.objects.push_back(std::move(row));
+                }
+            }
+        }
+    }
+
     issues.clear();
     if (auto* list = analysisObj->getProperty("issues").getArray())
     {

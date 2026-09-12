@@ -7,17 +7,14 @@
 namespace sonora
 {
 
-class ProjectCanvas : public juce::Component
+class DnaView : public juce::Component
 {
 public:
-    explicit ProjectCanvas(AppState& state);
+    explicit DnaView(AppState& state);
     void paint(juce::Graphics& g) override;
-    void mouseDown(const juce::MouseEvent& event) override;
 
 private:
     AppState& state_;
-
-    juce::Rectangle<int> slotBounds(int index) const;
 };
 
 } // namespace sonora

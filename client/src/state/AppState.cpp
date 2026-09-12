@@ -129,12 +129,48 @@ std::vector<juce::String> AppState::profileLines() const
     return lines;
 }
 
+const models::TrackDna* AppState::dna() const
+{
+    if (!analysis_ || !analysis_->hasDna)
+        return nullptr;
+    return &analysis_->dna;
+}
+
 void AppState::setTab(WorkspaceTab tab)
 {
     if (tab == WorkspaceTab::Mix || tab == WorkspaceTab::Master)
         return;
     tab_ = tab;
+    switch (tab)
+    {
+        case WorkspaceTab::Overview: selectedNode_ = CanvasNode::Input; break;
+        case WorkspaceTab::Dna: selectedNode_ = CanvasNode::Dna; break;
+        case WorkspaceTab::Structure: selectedNode_ = CanvasNode::Structure; break;
+        case WorkspaceTab::Harmony: selectedNode_ = CanvasNode::Harmony; break;
+        case WorkspaceTab::Generate: selectedNode_ = CanvasNode::Export; break;
+        default: break;
+    }
     notify();
+}
+
+void AppState::selectCanvasNode(CanvasNode node)
+{
+    selectedNode_ = node;
+    switch (node)
+    {
+        case CanvasNode::Input: tab_ = WorkspaceTab::Overview; break;
+        case CanvasNode::Dna: tab_ = WorkspaceTab::Dna; break;
+        case CanvasNode::Structure: tab_ = WorkspaceTab::Structure; break;
+        case CanvasNode::Mix: tab_ = WorkspaceTab::Dna; break;
+        case CanvasNode::Harmony: tab_ = WorkspaceTab::Harmony; break;
+        case CanvasNode::Export: tab_ = WorkspaceTab::Generate; break;
+    }
+    notify();
+}
+
+void AppState::focusArrangement()
+{
+    selectCanvasNode(CanvasNode::Structure);
 }
 
 void AppState::clearTrack()
@@ -151,6 +187,8 @@ void AppState::clearTrack()
     analyzeProgress_ = 0.0f;
     fault_ = {};
     analysisState_ = AnalysisState::Empty;
+    selectedNode_ = CanvasNode::Input;
+    tab_ = WorkspaceTab::Overview;
     notify();
 }
 
@@ -185,6 +223,12 @@ void AppState::analyzeFile(const juce::File& file)
     fault_ = {};
     analyzeProgress_ = 0.08f;
     analysisState_ = AnalysisState::Loading;
+    selectedNode_ = CanvasNode::Input;
+    tab_ = WorkspaceTab::Overview;
+    selectedNode_ = CanvasNode::Dna;
+    tab_ = WorkspaceTab::Overview;
+    selectedNode_ = CanvasNode::Input;
+    tab_ = WorkspaceTab::Overview;
     clientLog("AppState analyzeFile " + file.getFullPathName() + " bytes=" + juce::String(file.getSize()));
     notify();
 
@@ -246,6 +290,8 @@ void AppState::analyzeFile(const juce::File& file)
                             insights_.push_back(insightFromIssue(issue));
                         analysisState_ = AnalysisState::Complete;
                         analyzeProgress_ = 1.0f;
+                        selectedNode_ = CanvasNode::Dna;
+                        tab_ = WorkspaceTab::Dna;
                         fault_ = {};
                         notify();
                     }
@@ -328,6 +374,22 @@ void AppState::requestHarmony()
 void AppState::createEqProfile()
 {
     models::EqProfile profile;
+    if (const auto* model = dna())
+    {
+        for (const auto& object : model->objects)
+        {
+            if (object.type == "EQ_PROFILE")
+            {
+                profile.operation = "EQ";
+                profile.target = object.input;
+                profile.frequencyHz = object.frequency > 0.0f ? object.frequency : 120.0f;
+                profile.gainDb = object.gain != 0.0f ? object.gain : -3.0f;
+                eqProfile_ = profile;
+                selectCanvasNode(CanvasNode::Mix);
+                return;
+            }
+        }
+    }
     if (!insights_.empty())
     {
         const auto& insight = insights_.front();

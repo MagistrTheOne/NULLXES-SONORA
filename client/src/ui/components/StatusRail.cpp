@@ -4,47 +4,6 @@
 
 namespace sonora
 {
-namespace
-{
-juce::String computeLabel(const AppState& state)
-{
-    return state.backendOnline() ? "BACKEND ONLINE" : "BACKEND OFFLINE";
-}
-
-juce::String usageLabel(const AppState& state)
-{
-    switch (state.analysisState())
-    {
-        case AnalysisState::Loading:
-        case AnalysisState::Analyzing:
-            return "ANALYZING";
-        case AnalysisState::Failed:
-            return "FAILED";
-        case AnalysisState::Complete:
-            return "COMPLETE";
-        case AnalysisState::Empty:
-        default:
-            return state.backendOnline() ? "IDLE" : "OFFLINE";
-    }
-}
-
-juce::String resultLabel(const AppState& state)
-{
-    switch (state.analysisState())
-    {
-        case AnalysisState::Loading:
-        case AnalysisState::Analyzing:
-            return "WAITING";
-        case AnalysisState::Complete:
-            return state.issueCountLabel();
-        case AnalysisState::Failed:
-            return state.fault().reason.isEmpty() ? "FAILED" : state.fault().reason;
-        case AnalysisState::Empty:
-        default:
-            return "---";
-    }
-}
-} // namespace
 
 StatusRail::StatusRail(AppState& state)
     : state_(state)
@@ -64,15 +23,25 @@ void StatusRail::paint(juce::Graphics& g)
     auto paintCell = [&](juce::Rectangle<int> area, const juce::String& k, const juce::String& v) {
         g.setColour(colors::mutedForeground());
         g.setFont(type::label(9.0f));
-        g.drawText(k, area.removeFromLeft(72), juce::Justification::centredLeft, true);
+        g.drawText(k, area.removeFromLeft(80), juce::Justification::centredLeft, true);
         g.setColour(colors::foreground());
         g.setFont(type::label(10.0f));
         g.drawText(v, area, juce::Justification::centredLeft, true);
     };
 
-    paintCell(bounds.removeFromLeft(cell), "COMPUTE", computeLabel(state_));
-    paintCell(bounds.removeFromLeft(cell), "USAGE", usageLabel(state_));
-    paintCell(bounds, "RESULT", resultLabel(state_));
+    juce::String compute = state_.backendOnline() ? "READY" : "OFFLINE";
+    if (state_.analysisState() == AnalysisState::Analyzing || state_.analysisState() == AnalysisState::Loading)
+        compute = "LISTENING";
+
+    juce::String result = "---";
+    if (state_.analysisState() == AnalysisState::Complete)
+        result = state_.issueCountLabel() + "  /  " + state_.objectCountLabel();
+    else if (state_.analysisState() == AnalysisState::Failed)
+        result = state_.fault().reason.isEmpty() ? "FAILED" : state_.fault().reason;
+
+    paintCell(bounds.removeFromLeft(cell), "COMPUTE", compute);
+    paintCell(bounds.removeFromLeft(cell), "SONORA", "v0.3.1");
+    paintCell(bounds, "RESULT", result);
 }
 
 } // namespace sonora

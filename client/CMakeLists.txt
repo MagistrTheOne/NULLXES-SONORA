@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.22)
 
-project(sonora-runtime VERSION 0.3.0 LANGUAGES CXX)
+project(sonora-runtime VERSION 0.3.1 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -33,7 +33,7 @@ juce_add_gui_app(SONORA
     PRODUCT_NAME "SONORA"
     COMPANY_NAME "NULLXES"
     BUNDLE_ID com.nullxes.sonora
-    VERSION 0.3.0
+    VERSION 0.3.1
     NEEDS_WEB_BROWSER FALSE
 )
 
@@ -60,6 +60,8 @@ target_sources(SONORA PRIVATE
     src/ui/theme/Colors.h
     src/ui/theme/Typography.h
     src/ui/theme/Theme.h
+    src/ui/copy/HumanCopy.h
+    src/ui/copy/HumanCopy.cpp
     src/ui/components/ActionButton.h
     src/ui/components/ActionButton.cpp
     src/ui/components/MetricCard.h
@@ -72,18 +74,34 @@ target_sources(SONORA PRIVATE
     src/ui/components/InsightPanel.cpp
     src/ui/components/StatusRail.h
     src/ui/components/StatusRail.cpp
-    src/ui/components/TabBar.h
-    src/ui/components/TabBar.cpp
+    src/ui/components/TopBar.h
+    src/ui/components/TopBar.cpp
     src/ui/components/ContextRail.h
     src/ui/components/ContextRail.cpp
     src/ui/components/CreatePanel.h
     src/ui/components/CreatePanel.cpp
+    src/ui/components/CreatePage.h
+    src/ui/components/CreatePage.cpp
     src/ui/components/ProjectCanvas.h
     src/ui/components/ProjectCanvas.cpp
     src/ui/components/DnaView.h
     src/ui/components/DnaView.cpp
     src/ui/components/StructureView.h
     src/ui/components/StructureView.cpp
+    src/ui/components/WaveformStrip.h
+    src/ui/components/WaveformStrip.cpp
+    src/ui/components/IdentityRow.h
+    src/ui/components/IdentityRow.cpp
+    src/ui/components/HealthGauge.h
+    src/ui/components/HealthGauge.cpp
+    src/ui/components/ArrangementStrip.h
+    src/ui/components/ArrangementStrip.cpp
+    src/ui/components/MixHealthView.h
+    src/ui/components/MixHealthView.cpp
+    src/ui/components/TranslationStrip.h
+    src/ui/components/TranslationStrip.cpp
+    src/ui/components/MaskingHeatmap.h
+    src/ui/components/MaskingHeatmap.cpp
     src/ui/screens/Dashboard.h
     src/ui/screens/Dashboard.cpp
 )

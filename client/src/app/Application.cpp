@@ -9,7 +9,7 @@ class SonoraApplication : public juce::JUCEApplication
 {
 public:
     const juce::String getApplicationName() override { return "SONORA"; }
-    const juce::String getApplicationVersion() override { return "0.3.0"; }
+    const juce::String getApplicationVersion() override { return "0.3.1"; }
     bool moreThanOneInstanceAllowed() override { return true; }
 
     void initialise(const juce::String&) override

@@ -13,14 +13,19 @@ MainWindow::MainWindow(const juce::String& name)
     setUsingNativeTitleBar(true);
     setContentNonOwned(&dashboard_, true);
     setResizable(true, true);
-    setResizeLimits(1100, 720, 4096, 2160);
-    centreWithSize(1440, 900);
+    setResizeLimits(1280, 800, 4096, 2160);
+    centreWithSize(1600, 960);
     setVisible(true);
 }
 
 void MainWindow::closeButtonPressed()
 {
     juce::JUCEApplication::getInstance()->systemRequestedQuit();
+}
+
+bool MainWindow::keyPressed(const juce::KeyPress& key)
+{
+    return state_.handleKeyPress(key);
 }
 
 } // namespace sonora

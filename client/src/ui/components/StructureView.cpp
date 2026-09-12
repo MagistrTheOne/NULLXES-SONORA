@@ -1,5 +1,6 @@
 #include "ui/components/StructureView.h"
 
+#include "ui/copy/HumanCopy.h"
 #include "ui/theme/Theme.h"
 
 namespace sonora
@@ -13,73 +14,53 @@ StructureView::StructureView(AppState& state) : state_(state)
 void StructureView::paint(juce::Graphics& g)
 {
     const auto* dna = state_.dna();
-    if (dna == nullptr)
+    theme::fillCard(g, getLocalBounds());
+    auto bounds = getLocalBounds().reduced(20, 16);
+    Theme::drawMuted(g, bounds.removeFromTop(14), "ARRANGEMENT");
+    bounds.removeFromTop(8);
+    g.setColour(colors::foreground());
+    g.setFont(type::display(20.0f));
+    g.drawText("Form of the track", bounds.removeFromTop(26), juce::Justification::centredLeft, true);
+    bounds.removeFromTop(10);
+
+    if (dna == nullptr || dna->sections.empty() || !state_.analysis())
+    {
+        Theme::drawMuted(g, bounds.removeFromTop(18), "Load a track. SONORA will hear the shape.");
         return;
+    }
 
-    auto bounds = getLocalBounds();
-    auto listBox = bounds.removeFromLeft(juce::jmax(280, bounds.getWidth() * 46 / 100));
-    bounds.removeFromLeft(12);
-    auto mapBox = bounds;
-
-    theme::fillCard(g, listBox);
-    auto list = listBox.reduced(16, 14);
-    theme::drawSectionLabel(g, list.removeFromTop(14), "ARRANGEMENT");
-    list.removeFromTop(10);
-    const int rowH = juce::jmax(48, juce::jmin(64, list.getHeight() / juce::jmax(1, (int) dna->sections.size())));
+    const float duration = juce::jmax(0.1f, state_.analysis()->durationSec);
+    auto lane = bounds.removeFromTop(36);
+    int x = lane.getX();
     for (const auto& section : dna->sections)
     {
-        auto row = list.removeFromTop(rowH);
-        auto label = row.removeFromLeft(72);
-        Theme::drawMuted(g, label.removeFromTop(12), juce::String(section.name).toUpperCase());
-        g.setColour(colors::foreground());
-        g.setFont(type::label(10.0f));
-        g.drawText(
-            juce::String(section.start, 1) + " - " + juce::String(section.end, 1),
-            label,
-            juce::Justification::centredLeft,
-            true);
-        row.removeFromLeft(12);
+        const float span = juce::jmax(0.0f, section.end - section.start) / duration;
+        const int w = juce::jmax(6, juce::roundToInt((float) lane.getWidth() * span));
+        auto slice = juce::Rectangle<int>(x, lane.getY(), juce::jmin(w, lane.getRight() - x), lane.getHeight());
+        g.setColour(section.name == "drop" ? colors::destructive()
+                                           : colors::foreground().withAlpha(0.16f + section.energy * 0.5f));
+        g.fillRect(slice);
+        x += w;
+    }
+    bounds.removeFromTop(16);
+
+    for (const auto& section : dna->sections)
+    {
+        auto row = bounds.removeFromTop(52);
+        Theme::drawMuted(g, row.removeFromLeft(80), juce::String(section.name).toUpperCase());
+        Theme::drawMuted(g, row.removeFromLeft(70), copy::formatTime(section.start));
         Theme::drawBlocks(g, row.removeFromTop(16), section.energy);
         row.removeFromTop(6);
-        Theme::drawMuted(g, row, "ENERGY  " + juce::String(section.energy, 2)
-            + "    BASS  " + juce::String(section.bassEnergy, 2));
-        list.removeFromTop(6);
+        Theme::drawMuted(g, row, section.name == "drop" && section.energy >= 0.7f ? "The drop works"
+                                                                                 : "Energy  " + juce::String(section.energy, 2));
+        bounds.removeFromTop(6);
     }
 
-    theme::fillCard(g, mapBox);
-    auto map = mapBox.reduced(16, 14);
-    theme::drawSectionLabel(g, map.removeFromTop(14), "ENERGY PROFILE");
-    map.removeFromTop(10);
-
-    auto curveBox = map.removeFromTop(juce::jmax(56, map.getHeight() / 3));
-    g.setColour(colors::border());
-    g.fillRect(curveBox);
-    if (!dna->energyCurve.empty())
+    if (state_.uiMode() == UiMode::Advanced)
     {
-        const float slot = (float) curveBox.getWidth() / (float) dna->energyCurve.size();
-        for (int i = 0; i < (int) dna->energyCurve.size(); ++i)
-        {
-            const float value = juce::jlimit(0.0f, 1.0f, dna->energyCurve[(size_t) i]);
-            const int h = juce::jmax(1, juce::roundToInt((float) curveBox.getHeight() * value));
-            g.setColour(colors::foreground());
-            g.fillRect(curveBox.getX() + juce::roundToInt(slot * (float) i),
-                       curveBox.getBottom() - h,
-                       juce::jmax(1, juce::roundToInt(slot) - 1),
-                       h);
-        }
-    }
-    map.removeFromTop(16);
-    Theme::drawMuted(g, map.removeFromTop(14), "MEAN  " + juce::String(dna->energyMean, 2)
-        + "    PEAK  " + juce::String(dna->energyPeak, 2));
-    map.removeFromTop(12);
-    theme::drawSectionLabel(g, map.removeFromTop(14), "BY SECTION");
-    map.removeFromTop(10);
-    for (const auto& section : dna->sections)
-    {
-        auto row = map.removeFromTop(22);
-        Theme::drawMuted(g, row.removeFromLeft(72), juce::String(section.name).toUpperCase());
-        Theme::drawBlocks(g, row.reduced(0, 4), section.energy);
-        map.removeFromTop(6);
+        bounds.removeFromTop(8);
+        Theme::drawMuted(g, bounds.removeFromTop(14), "ADVANCED DNA");
+        Theme::drawBody(g, bounds.removeFromTop(16), "novelty peak + energy label");
     }
 }
 

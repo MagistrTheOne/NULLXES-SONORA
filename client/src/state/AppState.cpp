@@ -13,18 +13,18 @@ models::Insight insightFromIssue(const models::Issue& issue)
 {
     models::Insight row;
     row.issue = issue.type;
-    row.reason = issue.detail.empty() ? issue.type : issue.detail;
+    row.reason = copy::issuePhrase(issue).toStdString();
     row.confidence = issue.severity;
-    row.operation = "Dynamic EQ";
+    row.operation = "EQ";
     if (issue.type == "clipping")
         row.action = "Reduce peak gain";
     else if (issue.type == "narrow_stereo")
-        row.action = "Widen mid/side";
+        row.action = "Widen the image";
     else if (issue.type == "low_dynamic_range")
         row.action = "Restore dynamics";
     else
     {
-        row.action = "Create EQ profile";
+        row.action = "Fix vocal space";
         row.frequencyHz = issue.type == "frequency_conflict" ? 250.0f : 120.0f;
     }
     return row;
@@ -105,9 +105,33 @@ juce::String AppState::bitDepthLabel() const
     return analysis_ ? "24 bit" : "Waiting";
 }
 
+juce::String AppState::durationLabel() const
+{
+    if (!analysis_)
+        return "--:--";
+    return copy::formatTime(analysis_->durationSec);
+}
+
 juce::String AppState::issueCountLabel() const
 {
     return juce::String((int) issues_.size()) + (issues_.size() == 1 ? " ISSUE" : " ISSUES");
+}
+
+juce::String AppState::objectCountLabel() const
+{
+    int count = 0;
+    if (const auto* model = dna())
+        count += (int) model->objects.size();
+    if (harmony_)
+        ++count;
+    if (eqProfile_)
+        ++count;
+    return juce::String(count) + (count == 1 ? " OBJECT" : " OBJECTS");
+}
+
+juce::String AppState::styleLabel() const
+{
+    return copy::styleLine(dna(), profileLines());
 }
 
 std::vector<juce::String> AppState::profileLines() const
@@ -119,14 +143,70 @@ std::vector<juce::String> AppState::profileLines() const
     for (const auto& item : profile_.genres)
         if (!item.empty())
             lines.push_back(juce::String(item));
+    if (const auto* model = dna())
+    {
+        for (const auto& tag : model->genreProfile)
+            if (!tag.empty())
+                lines.push_back(juce::String(tag));
+    }
     if (lines.empty())
     {
         lines.emplace_back("Deep House");
         lines.emplace_back("Slap House");
     }
-    if (lines.size() > 3)
-        lines.resize(3);
-    return lines;
+    std::vector<juce::String> unique;
+    for (const auto& line : lines)
+    {
+        bool seen = false;
+        for (const auto& existing : unique)
+            if (existing.equalsIgnoreCase(line))
+                seen = true;
+        if (!seen)
+            unique.push_back(line);
+    }
+    if (unique.size() > 3)
+        unique.resize(3);
+    return unique;
+}
+
+std::vector<juce::String> AppState::moodLabels() const
+{
+    if (!analysis_)
+        return { "---" };
+    return copy::moodTags(*analysis_);
+}
+
+int AppState::healthScore() const
+{
+    if (!analysis_)
+        return 0;
+    return copy::healthScore(*analysis_, issues_);
+}
+
+juce::String AppState::healthVerdict() const
+{
+    return copy::healthVerdict(healthScore());
+}
+
+copy::Delta AppState::mixDelta() const
+{
+    if (!previousAnalysis_ || !analysis_)
+        return {};
+    return copy::mixDelta(*previousAnalysis_, *analysis_);
+}
+
+copy::Finding AppState::assistFinding() const
+{
+    if (!analysis_)
+        return { "Load a track.", "SONORA will listen, then we can work." };
+    return copy::assistFinding(*analysis_, issues_);
+}
+
+std::vector<copy::MixRow> AppState::mixRows() const
+{
+    if (!analysis_)
+        return {};
+    return copy::mixRows(*analysis_, issues_);
 }
 
 const models::TrackDna* AppState::dna() const
@@ -138,16 +218,15 @@ const models::TrackDna* AppState::dna() const
 
 void AppState::setTab(WorkspaceTab tab)
 {
-    if (tab == WorkspaceTab::Mix || tab == WorkspaceTab::Master)
+    if (tab == WorkspaceTab::Reference)
         return;
     tab_ = tab;
     switch (tab)
     {
-        case WorkspaceTab::Overview: selectedNode_ = CanvasNode::Input; break;
-        case WorkspaceTab::Dna: selectedNode_ = CanvasNode::Dna; break;
-        case WorkspaceTab::Structure: selectedNode_ = CanvasNode::Structure; break;
-        case WorkspaceTab::Harmony: selectedNode_ = CanvasNode::Harmony; break;
-        case WorkspaceTab::Generate: selectedNode_ = CanvasNode::Export; break;
+        case WorkspaceTab::Track: selectedNode_ = CanvasNode::Track; break;
+        case WorkspaceTab::Mix: selectedNode_ = CanvasNode::Improve; break;
+        case WorkspaceTab::Arrangement: selectedNode_ = CanvasNode::Understand; break;
+        case WorkspaceTab::Create: selectedNode_ = CanvasNode::Create; break;
         default: break;
     }
     notify();
@@ -158,19 +237,56 @@ void AppState::selectCanvasNode(CanvasNode node)
     selectedNode_ = node;
     switch (node)
     {
-        case CanvasNode::Input: tab_ = WorkspaceTab::Overview; break;
-        case CanvasNode::Dna: tab_ = WorkspaceTab::Dna; break;
-        case CanvasNode::Structure: tab_ = WorkspaceTab::Structure; break;
-        case CanvasNode::Mix: tab_ = WorkspaceTab::Dna; break;
-        case CanvasNode::Harmony: tab_ = WorkspaceTab::Harmony; break;
-        case CanvasNode::Export: tab_ = WorkspaceTab::Generate; break;
+        case CanvasNode::Track: tab_ = WorkspaceTab::Track; break;
+        case CanvasNode::Understand: tab_ = WorkspaceTab::Track; armAssist(); return;
+        case CanvasNode::Improve: tab_ = WorkspaceTab::Mix; break;
+        case CanvasNode::Create: tab_ = WorkspaceTab::Create; break;
+        case CanvasNode::Export: tab_ = WorkspaceTab::Create; break;
     }
     notify();
 }
 
 void AppState::focusArrangement()
 {
-    selectCanvasNode(CanvasNode::Structure);
+    setTab(WorkspaceTab::Arrangement);
+}
+
+void AppState::toggleUiMode()
+{
+    uiMode_ = uiMode_ == UiMode::Simple ? UiMode::Advanced : UiMode::Simple;
+    notify();
+}
+
+void AppState::armAssist()
+{
+    assistArmed_ = true;
+    tab_ = WorkspaceTab::Track;
+    selectedNode_ = CanvasNode::Understand;
+    notify();
+}
+
+void AppState::disarmAssist()
+{
+    if (!assistArmed_)
+        return;
+    assistArmed_ = false;
+    notify();
+}
+
+bool AppState::handleKeyPress(const juce::KeyPress& key)
+{
+    if (key == juce::KeyPress('l', juce::ModifierKeys::ctrlModifier, 0)
+        || key == juce::KeyPress('L', juce::ModifierKeys::ctrlModifier, 0))
+    {
+        armAssist();
+        return true;
+    }
+    if (key == juce::KeyPress::escapeKey && assistArmed_)
+    {
+        disarmAssist();
+        return true;
+    }
+    return false;
 }
 
 void AppState::clearTrack()
@@ -187,8 +303,9 @@ void AppState::clearTrack()
     analyzeProgress_ = 0.0f;
     fault_ = {};
     analysisState_ = AnalysisState::Empty;
-    selectedNode_ = CanvasNode::Input;
-    tab_ = WorkspaceTab::Overview;
+    selectedNode_ = CanvasNode::Track;
+    tab_ = WorkspaceTab::Track;
+    assistArmed_ = false;
     notify();
 }
 
@@ -213,6 +330,8 @@ void AppState::pingHealth()
 void AppState::analyzeFile(const juce::File& file)
 {
     clientLog("AppState analyzeFile " + file.getFullPathName());
+    if (analysis_)
+        previousAnalysis_ = *analysis_;
     hasTrack_ = true;
     loadedFilename_ = file.getFileName().toStdString();
     analysis_.reset();
@@ -223,8 +342,9 @@ void AppState::analyzeFile(const juce::File& file)
     fault_ = {};
     analyzeProgress_ = 0.08f;
     analysisState_ = AnalysisState::Loading;
-    selectedNode_ = CanvasNode::Input;
-    tab_ = WorkspaceTab::Overview;
+    selectedNode_ = CanvasNode::Track;
+    tab_ = WorkspaceTab::Track;
+    assistArmed_ = false;
     clientLog("AppState analyzeFile " + file.getFullPathName() + " bytes=" + juce::String(file.getSize()));
     notify();
 
@@ -286,8 +406,8 @@ void AppState::analyzeFile(const juce::File& file)
                             insights_.push_back(insightFromIssue(issue));
                         analysisState_ = AnalysisState::Complete;
                         analyzeProgress_ = 1.0f;
-                        selectedNode_ = CanvasNode::Dna;
-                        tab_ = WorkspaceTab::Dna;
+                        selectedNode_ = CanvasNode::Understand;
+                        tab_ = WorkspaceTab::Track;
                         fault_ = {};
                         notify();
                     }
@@ -351,7 +471,7 @@ void AppState::requestHarmony()
 {
     if (analysisId_.isEmpty())
         return;
-    setTab(WorkspaceTab::Harmony);
+    setTab(WorkspaceTab::Create);
     runAsync([this] {
         auto json = api_.generateHarmony(analysisId_);
         applyOnMessage([this, json] {
@@ -381,7 +501,7 @@ void AppState::createEqProfile()
                 profile.frequencyHz = object.frequency > 0.0f ? object.frequency : 120.0f;
                 profile.gainDb = object.gain != 0.0f ? object.gain : -3.0f;
                 eqProfile_ = profile;
-                selectCanvasNode(CanvasNode::Mix);
+                setTab(WorkspaceTab::Mix);
                 return;
             }
         }
@@ -389,7 +509,7 @@ void AppState::createEqProfile()
     if (!insights_.empty())
     {
         const auto& insight = insights_.front();
-        profile.operation = insight.operation.empty() ? "Dynamic EQ" : insight.operation;
+        profile.operation = insight.operation.empty() ? "EQ" : insight.operation;
         profile.target = insight.issue.empty() ? insight.action : insight.issue;
         if (insight.frequencyHz.has_value())
             profile.frequencyHz = *insight.frequencyHz;
@@ -399,7 +519,7 @@ void AppState::createEqProfile()
     else if (!issues_.empty())
     {
         profile.target = issues_.front().type;
-        profile.operation = "Dynamic EQ";
+        profile.operation = "EQ";
         profile.frequencyHz = 120.0f;
     }
     eqProfile_ = profile;

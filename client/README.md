@@ -1,4 +1,4 @@
-# SONORA Runtime (v0.3)
+# SONORA Runtime (v0.3.1)
 
 Standalone desktop shell. Native JUCE 8, no WebView, no VST yet.
 
@@ -35,7 +35,7 @@ UI lives off `AppState` / `AnalysisState`:
 LOAD TRACK → ANALYZING → TRACK INTELLIGENCE → ENGINEERING REPORT → ACTION
 ```
 
-Empty shows NO TRACK. Analyzing shows DSP progress. Complete builds a Track DNA model: identity, arrangement, energy, mix character, translation. Canvas nodes open the inspector. CREATE still writes objects. No LLM in this layer.
+Empty shows NO TRACK. Analyzing shows DSP progress. Complete opens TRACK: character, mix health, arrangement, Assist. DNA and methods stay in Advanced. Ctrl+L arms SONORA ASSIST. No LLM in this layer.
 
 ## Backend
 

@@ -26,7 +26,7 @@ void ContextRail::paint(juce::Graphics& g)
             Theme::drawBody(g, bounds.removeFromTop(18), line);
             bounds.removeFromTop(4);
         }
-        bounds.removeFromTop(16);
+        bounds.removeFromTop(14);
     };
 
     const juce::String track = state_.hasTrack() ? juce::String(state_.loadedFilename()) : "NO TRACK";
@@ -36,12 +36,13 @@ void ContextRail::paint(juce::Graphics& g)
         if (state_.analysisState() == AnalysisState::Failed)
             engine = "DSP FAILED";
         else if (state_.analysisState() == AnalysisState::Analyzing || state_.analysisState() == AnalysisState::Loading)
-            engine = "DSP PROCESSING";
+            engine = "LISTENING";
         else
             engine = "DSP READY";
     }
 
     drawBlock("TRACK", { track });
+    drawBlock("DURATION", { state_.durationLabel() });
     drawBlock("FORMAT", { state_.channelLabel(), state_.sampleRateLabel(), state_.bitDepthLabel() });
     drawBlock("ENGINE", { engine });
     drawBlock("PROFILE", state_.profileLines());

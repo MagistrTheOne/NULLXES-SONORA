@@ -5,8 +5,6 @@
 
 #include <juce_gui_basics/juce_gui_basics.h>
 
-#include <memory>
-
 namespace sonora
 {
 
@@ -16,6 +14,7 @@ public:
     explicit MainWindow(const juce::String& name);
 
     void closeButtonPressed() override;
+    bool keyPressed(const juce::KeyPress& key) override;
 
 private:
     AppState state_;

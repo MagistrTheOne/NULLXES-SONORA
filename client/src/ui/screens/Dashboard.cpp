@@ -10,6 +10,9 @@ Dashboard::Dashboard(AppState& state)
     : state_(state)
     , context_(state)
     , tabs_(state)
+    , spectrum_()
+    , dnaView_(state)
+    , structureView_(state)
     , insights_(state)
     , create_(state)
     , canvas_(state)
@@ -31,6 +34,8 @@ Dashboard::Dashboard(AppState& state)
     addAndMakeVisible(key_);
     addAndMakeVisible(loudness_);
     addAndMakeVisible(spectrum_);
+    addAndMakeVisible(dnaView_);
+    addAndMakeVisible(structureView_);
     for (auto& row : issues_)
         addAndMakeVisible(row);
     addAndMakeVisible(insights_);
@@ -79,11 +84,15 @@ void Dashboard::refreshFromState()
     const bool showMetrics = complete && tab == WorkspaceTab::Overview;
     const bool showSpectrum = complete && (tab == WorkspaceTab::Overview || tab == WorkspaceTab::Spectrum);
     const bool showIssues = complete && tab == WorkspaceTab::Overview;
+    const bool showDna = complete && tab == WorkspaceTab::Dna;
+    const bool showStructure = complete && tab == WorkspaceTab::Structure;
 
     bpm_.setVisible(showMetrics);
     key_.setVisible(showMetrics);
     loudness_.setVisible(showMetrics);
     spectrum_.setVisible(showSpectrum);
+    dnaView_.setVisible(showDna);
+    structureView_.setVisible(showStructure);
     for (auto& row : issues_)
         row.setVisible(showIssues);
 
@@ -188,9 +197,9 @@ void Dashboard::paint(juce::Graphics& g)
             g.setFont(type::body(13.0f));
             g.drawText("->", inner.removeFromTop(18), juce::Justification::centredLeft, true);
             inner.removeFromTop(8);
-            Theme::drawMuted(g, inner.removeFromTop(16), "SONORA WILL EXTRACT");
+            Theme::drawMuted(g, inner.removeFromTop(16), "SONORA WILL BUILD A MODEL");
             inner.removeFromTop(6);
-            const char* items[] = { "- Rhythm", "- Harmony", "- Frequency", "- Dynamics", "- Structure" };
+            const char* items[] = { "- Time structure", "- Energy", "- Frequency", "- Mix character", "- Translation" };
             for (const auto* item : items)
                 Theme::drawBody(g, inner.removeFromTop(18), item);
         }
@@ -238,7 +247,7 @@ void Dashboard::paint(juce::Graphics& g)
     {
         auto intel = bpm_.getBounds().translated(0, -20);
         intel.setHeight(16);
-        theme::drawSectionLabel(g, intel, "TRACK INTELLIGENCE");
+        theme::drawSectionLabel(g, intel, "TRACK IDENTITY");
     }
 
     if (issues_[0].isVisible())
@@ -330,19 +339,32 @@ void Dashboard::resized()
     const auto tab = state_.tab();
     const bool complete = state_.analysisState() == AnalysisState::Complete;
     if (!complete || tab == WorkspaceTab::Harmony || tab == WorkspaceTab::Generate
-        || tab == WorkspaceTab::Mix || tab == WorkspaceTab::Master)
+        || tab == WorkspaceTab::Mix || tab == WorkspaceTab::Master
+        || tab == WorkspaceTab::Dna || tab == WorkspaceTab::Structure)
     {
         bpm_.setBounds({});
         key_.setBounds({});
         loudness_.setBounds({});
         if (!(complete && tab == WorkspaceTab::Spectrum))
             spectrum_.setBounds({});
+        dnaView_.setBounds({});
+        structureView_.setBounds({});
         for (auto& row : issues_)
             row.setBounds({});
         if (complete && tab == WorkspaceTab::Spectrum)
         {
             body.removeFromTop(12);
             spectrum_.setBounds(body);
+        }
+        else if (complete && tab == WorkspaceTab::Dna)
+        {
+            body.removeFromTop(8);
+            dnaView_.setBounds(body);
+        }
+        else if (complete && tab == WorkspaceTab::Structure)
+        {
+            body.removeFromTop(8);
+            structureView_.setBounds(body);
         }
         return;
     }

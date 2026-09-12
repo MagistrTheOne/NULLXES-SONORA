@@ -4,12 +4,14 @@
 #include "ui/components/ActionButton.h"
 #include "ui/components/ContextRail.h"
 #include "ui/components/CreatePanel.h"
+#include "ui/components/DnaView.h"
 #include "ui/components/InsightPanel.h"
 #include "ui/components/IssueRow.h"
 #include "ui/components/MetricCard.h"
 #include "ui/components/ProjectCanvas.h"
 #include "ui/components/SpectrumView.h"
 #include "ui/components/StatusRail.h"
+#include "ui/components/StructureView.h"
 #include "ui/components/TabBar.h"
 
 #include <juce_gui_basics/juce_gui_basics.h>
@@ -43,6 +45,8 @@ private:
     MetricCard key_;
     MetricCard loudness_;
     SpectrumView spectrum_;
+    DnaView dnaView_;
+    StructureView structureView_;
     std::array<IssueRow, 3> issues_;
     InsightPanel insights_;
     CreatePanel create_;

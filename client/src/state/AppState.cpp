@@ -225,10 +225,6 @@ void AppState::analyzeFile(const juce::File& file)
     analysisState_ = AnalysisState::Loading;
     selectedNode_ = CanvasNode::Input;
     tab_ = WorkspaceTab::Overview;
-    selectedNode_ = CanvasNode::Dna;
-    tab_ = WorkspaceTab::Overview;
-    selectedNode_ = CanvasNode::Input;
-    tab_ = WorkspaceTab::Overview;
     clientLog("AppState analyzeFile " + file.getFullPathName() + " bytes=" + juce::String(file.getSize()));
     notify();
 

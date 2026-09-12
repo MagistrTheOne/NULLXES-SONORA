@@ -16,8 +16,7 @@ public:
 
 private:
     AppState& state_;
-
-    juce::Rectangle<int> slotBounds(int index) const;
+    juce::Rectangle<int> nodeBounds(int index) const;
 };
 
 } // namespace sonora

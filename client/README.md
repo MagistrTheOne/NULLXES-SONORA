@@ -17,3 +17,13 @@ LISTEN → UNDERSTAND → CREATE → SONI
 
 Ctrl+L — SONORA LAB.  
 Ctrl+J — SONI.
+
+## Install VST3 (FL Studio)
+
+FL Studio does not accept the CMake build folder as a VST3 path.
+It only scans the system VST3 directory:
+
+`C:\Program Files\Common Files\VST3\SONORA.vst3`
+
+Release build copies the bundle there (`COPY_PLUGIN_AFTER_BUILD`).
+Then: Options → Manage plugins → Find plugins. Do not add `client/build/...`.

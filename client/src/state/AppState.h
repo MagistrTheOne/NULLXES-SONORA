@@ -253,9 +253,9 @@ private:
     bool labOpen_ = false;
     bool referenceOpen_ = false;
     bool soniOpen_ = true;
-    bool soniMuted_ = false;
-    bool soniWelcomed_ = false;
-    bool soniMeetOpen_ = true;
+    bool soniMuted_ = true;
+    bool soniWelcomed_ = true;
+    bool soniMeetOpen_ = false;
     bool dawHost_ = false;
     bool hostPlaying_ = false;
     double hostBpm_ = 0.0;

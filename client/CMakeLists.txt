@@ -173,6 +173,7 @@ target_compile_definitions(SONORA PRIVATE
 target_link_libraries(SONORA PRIVATE ${SONORA_JUCE_LIBS} SoniAssets)
 if(WIN32)
     target_link_libraries(SONORA PRIVATE sapi ole32 oleaut32 uuid)
+    target_compile_options(SONORA PRIVATE /utf-8)
 endif()
 
 juce_add_plugin(SONORA_VST3
@@ -188,7 +189,7 @@ juce_add_plugin(SONORA_VST3
     NEEDS_MIDI_OUTPUT FALSE
     IS_MIDI_EFFECT FALSE
     EDITOR_WANTS_KEYBOARD_FOCUS TRUE
-    COPY_PLUGIN_AFTER_BUILD FALSE
+    COPY_PLUGIN_AFTER_BUILD TRUE
     VST3_CATEGORIES "Fx Analyzer"
     DESCRIPTION "Adaptive Sound Intelligence"
 )
@@ -230,4 +231,5 @@ target_link_libraries(SONORA_VST3 PRIVATE
 )
 if(WIN32)
     target_link_libraries(SONORA_VST3 PRIVATE sapi ole32 oleaut32 uuid)
+    target_compile_options(SONORA_VST3 PRIVATE /utf-8)
 endif()

@@ -34,6 +34,7 @@ Dashboard::Dashboard(AppState& state)
 {
     setOpaque(true);
     setWantsKeyboardFocus(true);
+    getLookAndFeel().setDefaultSansSerifTypefaceName(type::family());
 
     loadTrack_.setLabel("LOAD NEW TRACK");
     loadTrack_.onClick = [this] { chooseTrack(); };
@@ -86,7 +87,7 @@ Dashboard::Dashboard(AppState& state)
 
     state_.addChangeListener(this);
     refreshFromState();
-    juce::MessageManager::callAsync([this] { state_.ensureSoniWelcome(); });
+    juce::MessageManager::callAsync([this] { state_.openSoni(); });
 }
 
 Dashboard::~Dashboard()
@@ -175,7 +176,7 @@ void Dashboard::refreshFromState()
     spectrum_.setVisible(complete && listen && advanced && !daw);
     translation_.setVisible(understand);
     masking_.setVisible(understand);
-    health_.setVisible(!soniTab);
+    health_.setVisible(!soniTab && !state_.soniOpen());
     createPage_.setVisible(create);
     referencePage_.setVisible(reference);
     structure_.setVisible(create);
@@ -270,8 +271,9 @@ void Dashboard::resized()
     const int statusH = 36;
     const int canvasH = 110;
     const int leftW = 210;
-    const int rightW = juce::jlimit(state_.soniOpen() ? 320 : 280, 380,
-                                    juce::roundToInt((float) getWidth() * (state_.soniOpen() ? 0.24f : 0.22f)));
+    const auto tab = state_.tab();
+    const bool soniTab = tab == WorkspaceTab::Soni;
+    const bool showSoni = (state_.soniOpen() || soniTab) && !state_.soniMeetOpen();
 
     status_.setBounds(0, getHeight() - statusH, getWidth(), statusH);
 
@@ -282,32 +284,24 @@ void Dashboard::resized()
     context_.setBounds(body.removeFromLeft(leftW));
     body.removeFromLeft(14);
 
-    auto right = body.removeFromRight(rightW);
-    body.removeFromRight(14);
-
-    const auto tab = state_.tab();
-    const bool soniTab = tab == WorkspaceTab::Soni;
-    health_.setBounds(soniTab ? juce::Rectangle<int>{} : right.removeFromTop(state_.soniOpen() ? 108 : 132));
-    if (!soniTab)
-        right.removeFromTop(10);
-    if (soniTab)
+    if (showSoni)
     {
-        soni_.setBounds({});
+        const int soniSide = juce::jmax(360, body.getWidth() / 2);
+        soni_.setBounds(body.removeFromRight(soniSide));
+        body.removeFromRight(14);
         createRail_.setBounds({});
-    }
-    else if (state_.soniOpen())
-    {
-        soni_.setBounds(right);
-        createRail_.setBounds({});
+        health_.setBounds({});
     }
     else
     {
         soni_.setBounds({});
+        const int rightW = juce::jlimit(260, 320, juce::roundToInt((float) body.getWidth() * 0.22f));
+        auto right = body.removeFromRight(rightW);
+        body.removeFromRight(14);
+        health_.setBounds(right.removeFromTop(132));
+        right.removeFromTop(10);
         if (createRail_.isVisible())
-        {
-            const int createH = juce::jlimit(180, 230, right.getHeight() / 2);
-            createRail_.setBounds(right.removeFromBottom(createH));
-        }
+            createRail_.setBounds(right.removeFromBottom(juce::jlimit(180, 230, right.getHeight() / 2)));
         else
             createRail_.setBounds({});
     }
@@ -354,7 +348,6 @@ void Dashboard::resized()
     {
         hideWorkspace();
         canvas_.setBounds({});
-        soni_.setBounds(body);
         return;
     }
 

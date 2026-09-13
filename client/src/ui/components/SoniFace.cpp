@@ -5,6 +5,27 @@
 
 namespace sonora
 {
+namespace
+{
+juce::Rectangle<int> faceSquare(const juce::Image& image)
+{
+    const float iw = (float) image.getWidth();
+    const float ih = (float) image.getHeight();
+    const float side = juce::jmin(iw, ih) * 0.84f;
+    float cx = iw * 0.57f;
+    float cy = ih * 0.28f;
+    auto box = juce::Rectangle<float>(side, side).withCentre({ cx, cy });
+    if (box.getX() < 0.0f)
+        box.setX(0.0f);
+    if (box.getY() < 0.0f)
+        box.setY(0.0f);
+    if (box.getRight() > iw)
+        box.setX(iw - side);
+    if (box.getBottom() > ih)
+        box.setY(ih - side);
+    return box.toNearestInt();
+}
+} // namespace
 
 juce::Image SoniFace::portrait()
 {
@@ -16,7 +37,7 @@ juce::Image SoniFace::portrait()
 
 SoniFace::SoniFace()
 {
-    setOpaque(false);
+    setOpaque(true);
 }
 
 void SoniFace::setMode(Mode mode)
@@ -27,30 +48,22 @@ void SoniFace::setMode(Mode mode)
 
 void SoniFace::paint(juce::Graphics& g)
 {
-    auto bounds = getLocalBounds().toFloat();
+    g.fillAll(colors::background());
+    auto bounds = getLocalBounds();
     const auto image = portrait();
-    if (!image.isValid())
-    {
-        g.setColour(colors::elevated());
-        g.fillRect(bounds);
+    if (!image.isValid() || bounds.isEmpty())
         return;
-    }
 
-    const float iw = (float) image.getWidth();
-    const float ih = (float) image.getHeight();
-    const float scale = juce::jmax(bounds.getWidth() / iw, bounds.getHeight() / ih);
-    auto src = juce::Rectangle<float>(0, 0, iw, ih);
-    auto dest = juce::Rectangle<float>(0, 0, iw * scale, ih * scale);
-    dest.setCentre(bounds.getCentre());
-    if (mode_ == Mode::Meet)
-        dest.translate(0.0f, bounds.getHeight() * 0.04f);
-    g.drawImage(image, dest);
-
-    if (mode_ != Mode::Meet)
-    {
-        g.setColour(colors::background().withAlpha(0.18f));
-        g.fillRect(bounds);
-    }
+    const auto src = faceSquare(image);
+    const float scale = juce::jmax((float) bounds.getWidth() / (float) src.getWidth(),
+                                   (float) bounds.getHeight() / (float) src.getHeight());
+    auto dest = juce::Rectangle<float>((float) src.getWidth() * scale, (float) src.getHeight() * scale);
+    dest.setCentre(bounds.toFloat().getCentre());
+    g.reduceClipRegion(bounds);
+    g.drawImage(image,
+                juce::roundToInt(dest.getX()), juce::roundToInt(dest.getY()),
+                juce::roundToInt(dest.getWidth()), juce::roundToInt(dest.getHeight()),
+                src.getX(), src.getY(), src.getWidth(), src.getHeight());
 }
 
 } // namespace sonora

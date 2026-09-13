@@ -510,7 +510,6 @@ void AppState::failListen(const juce::String& reason)
     analysisState_ = AnalysisState::Failed;
     analyzeProgress_ = 0.0f;
     fault_ = { "LISTEN FAILED", 0, reason };
-    pushSoni(soni::afterFail(reason));
     notify();
 }
 
@@ -520,7 +519,6 @@ void AppState::applyResult(engine::Result result, const juce::String& name)
     {
         analysisState_ = AnalysisState::Failed;
         fault_ = { "ANALYSIS FAILED", 0, result.error };
-        pushSoni(soni::afterFail(result.error));
         notify();
         return;
     }
@@ -538,7 +536,6 @@ void AppState::applyResult(engine::Result result, const juce::String& name)
     selectedNode_ = CanvasNode::Understand;
     tab_ = WorkspaceTab::Listen;
     fault_ = {};
-    pushSoni(dawHost_ ? soni::afterLive(soniContext()) : soni::afterListen(soniContext()));
     persistSession();
     notify();
 }
@@ -858,12 +855,6 @@ void AppState::analyzeLive(juce::AudioBuffer<float> buffer, double sampleRate, c
             analysisState_ = AnalysisState::Complete;
             analyzeProgress_ = 1.0f;
             fault_ = {};
-            const auto now = juce::Time::currentTimeMillis();
-            if (lastLiveSoniMs_ == 0 || now - lastLiveSoniMs_ > 40000)
-            {
-                lastLiveSoniMs_ = now;
-                pushSoni(soni::afterLive(soniContext()));
-            }
             persistSession();
             notify();
         });
@@ -976,23 +967,14 @@ void AppState::setSoniMuted(bool muted)
 void AppState::ensureSoniWelcome()
 {
     soniOpen_ = true;
-    if (soniWelcomed_)
-        return;
     soniWelcomed_ = true;
-    pushSoni(soni::greet(soniContext()));
-    persistSession();
     notify();
 }
 
 void AppState::sendSoniChat(const juce::String& text)
 {
-    const auto line = text.trim();
-    if (line.isEmpty())
-        return;
+    juce::ignoreUnused(text);
     soniOpen_ = true;
-    soniMessages_.push_back({ false, line });
-    pushSoni(soni::reply(soniContext(), line));
-    persistSession();
     notify();
 }
 
@@ -1118,7 +1100,7 @@ juce::String AppState::toSessionJson() const
     blob.pad = padClip_;
     blob.drop = dropPlan_;
     blob.eq = eqProfile_;
-    blob.soni = soniMessages_;
+    blob.soni.clear();
     return session::encode(blob);
 }
 
@@ -1160,11 +1142,8 @@ bool AppState::applySessionJson(const juce::String& json)
     padClip_ = blob.pad;
     dropPlan_ = blob.drop;
     eqProfile_ = blob.eq;
-    if (!blob.soni.empty())
-    {
-        soniMessages_ = blob.soni;
-        soniWelcomed_ = true;
-    }
+    soniMessages_.clear();
+    soniWelcomed_ = true;
     restoring_ = false;
     notify();
     return true;

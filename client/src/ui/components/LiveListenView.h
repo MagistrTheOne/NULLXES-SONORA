@@ -1,7 +1,6 @@
 #pragma once
 
 #include "state/AppState.h"
-#include "ui/components/SoniFace.h"
 
 #include <juce_gui_basics/juce_gui_basics.h>
 
@@ -22,7 +21,6 @@ private:
     void timerCallback() override;
 
     AppState& state_;
-    SoniFace face_;
     float pulse_ = 0.0f;
 };
 

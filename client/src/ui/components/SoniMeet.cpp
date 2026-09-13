@@ -32,8 +32,8 @@ void SoniMeet::paint(juce::Graphics& g)
 {
     g.fillAll(colors::background());
     auto bounds = getLocalBounds().reduced(28, 24);
-    auto left = bounds.removeFromLeft(juce::jmax(280, bounds.getWidth() * 42 / 100));
-    bounds.removeFromLeft(24);
+    const int photo = juce::jmin(bounds.getWidth() / 2, bounds.getHeight());
+    auto left = bounds.withTrimmedRight(photo + 20);
 
     Theme::drawMuted(g, left.removeFromTop(14), "NULLXES SONORA " + juce::String(kVersionLabel));
     left.removeFromTop(8);
@@ -44,15 +44,6 @@ void SoniMeet::paint(juce::Graphics& g)
     left.removeFromTop(16);
     Theme::drawBody(g, left.removeFromTop(20), "Understands your sound.");
     Theme::drawBody(g, left.removeFromTop(20), "Keeps you honest.");
-    left.removeFromTop(20);
-
-    juce::String quote = "не сири. не саппорт. продюсер рядом.";
-    const auto& lines = state_.soniMessages();
-    if (!lines.empty() && lines.front().fromSoni)
-        quote = lines.front().text;
-    g.setColour(colors::foreground());
-    g.setFont(type::body(16.0f));
-    g.drawMultiLineText(quote, left.getX(), left.getY() + 18, left.getWidth());
 
     auto footer = getLocalBounds().reduced(28, 20).removeFromBottom(36);
     Theme::drawMuted(g, footer.removeFromLeft(footer.getWidth() / 2),
@@ -62,10 +53,10 @@ void SoniMeet::paint(juce::Graphics& g)
 
 void SoniMeet::resized()
 {
-    auto bounds = getLocalBounds().reduced(28, 24);
-    auto left = bounds.removeFromLeft(juce::jmax(280, bounds.getWidth() * 42 / 100));
-    bounds.removeFromLeft(24);
-    face_.setBounds(bounds.removeFromTop(bounds.getHeight() - 56));
+    auto bounds = getLocalBounds();
+    const int side = juce::jmin(bounds.getWidth() / 2, bounds.getHeight());
+    face_.setBounds(bounds.removeFromRight(side));
+    auto left = getLocalBounds().reduced(28, 24).withTrimmedRight(side + 20);
     enter_.setBounds(left.removeFromBottom(40).removeFromLeft(160));
 }
 

@@ -12,18 +12,16 @@ namespace
 juce::String arrow(int dir)
 {
     if (dir > 0)
-        return juce::String::fromUTF8("\xe2\x86\x91");
+        return "+";
     if (dir < 0)
-        return juce::String::fromUTF8("\xe2\x86\x93");
-    return juce::String::fromUTF8("\xe2\x86\x92");
+        return "-";
+    return "=";
 }
 } // namespace
 
 LiveListenView::LiveListenView(AppState& state)
     : state_(state)
 {
-    face_.setMode(SoniFace::Mode::Live);
-    addAndMakeVisible(face_);
     startTimerHz(20);
 }
 
@@ -38,17 +36,12 @@ void LiveListenView::timerCallback()
     repaint();
 }
 
-void LiveListenView::resized()
-{
-    auto bounds = getLocalBounds().reduced(16, 14);
-    face_.setBounds(bounds.removeFromRight(juce::jmin(200, bounds.getWidth() / 3)).removeFromTop(240));
-}
+void LiveListenView::resized() {}
 
 void LiveListenView::paint(juce::Graphics& g)
 {
     theme::fillCard(g, getLocalBounds());
     auto bounds = getLocalBounds().reduced(20, 16);
-    bounds.removeFromRight(juce::jmin(212, bounds.getWidth() / 3) + 12);
 
     Theme::drawMuted(g, bounds.removeFromTop(14), "LISTEN");
     bounds.removeFromTop(8);
@@ -109,28 +102,14 @@ void LiveListenView::paint(juce::Graphics& g)
                     state_.hostPlaying() ? (state_.nowSection() + "    " + state_.barLabel())
                                          : state_.energyLabel());
 
-    bounds.removeFromTop(10);
-    Theme::drawMuted(g, bounds.removeFromTop(14), "LIVE MIX STATE");
-    bounds.removeFromTop(4);
-    for (const auto& flag : state_.liveMixFlags())
-        Theme::drawBody(g, bounds.removeFromTop(18), flag.name + "  " + arrow(flag.dir));
-
-    bounds.removeFromTop(10);
-    Theme::drawMuted(g, bounds.removeFromTop(14), "SONI");
-    bounds.removeFromTop(4);
-    juce::String line = "жми play. я услышу.";
-    const auto& messages = state_.soniMessages();
-    for (int i = (int) messages.size() - 1; i >= 0; --i)
+    if (state_.trackUnderstood() || state_.hostPlaying())
     {
-        if (messages[(size_t) i].fromSoni)
-        {
-            line = messages[(size_t) i].text.replace("\n", "  ");
-            break;
-        }
+        bounds.removeFromTop(10);
+        Theme::drawMuted(g, bounds.removeFromTop(14), "LIVE MIX STATE");
+        bounds.removeFromTop(4);
+        for (const auto& flag : state_.liveMixFlags())
+            Theme::drawBody(g, bounds.removeFromTop(18), flag.name + "  " + arrow(flag.dir));
     }
-    g.setColour(colors::foreground());
-    g.setFont(type::body(13.0f));
-    g.drawMultiLineText(line, bounds.getX(), bounds.getY() + 14, bounds.getWidth());
 }
 
 } // namespace sonora

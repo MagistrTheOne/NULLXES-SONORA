@@ -7,9 +7,11 @@ namespace sonora
 
 inline void clientLog(const juce::String& line)
 {
-    const auto stamped = juce::Time::getCurrentTime().toString(true, true, true, true) + "  " + line;
-    juce::Logger::writeToLog(stamped);
+#if JUCE_DEBUG
     DBG("[SONORA] " << line);
+#else
+    juce::ignoreUnused(line);
+#endif
 }
 
 } // namespace sonora

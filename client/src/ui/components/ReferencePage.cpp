@@ -1,6 +1,5 @@
 #include "ui/components/ReferencePage.h"
 
-#include "backend/ClientLog.h"
 #include "ui/copy/HumanCopy.h"
 #include "ui/theme/Theme.h"
 
@@ -20,11 +19,10 @@ void ReferencePage::chooseReference()
         "LOAD REFERENCE",
         juce::File(),
         "*.wav;*.mp3;*.flac");
-    constexpr auto flags = juce::FileBrowserComponent::openMode
-                           | juce::FileBrowserComponent::canSelectFiles;
-    chooser_->launchAsync(flags, [this](const juce::FileChooser& chooser) {
+    constexpr auto browserFlags = juce::FileBrowserComponent::openMode
+                                  | juce::FileBrowserComponent::canSelectFiles;
+    chooser_->launchAsync(browserFlags, [this](const juce::FileChooser& chooser) {
         const auto file = chooser.getResult();
-        clientLog("Reference chooser " + file.getFullPathName());
         if (file.existsAsFile())
             state_.compareReference(file);
     });

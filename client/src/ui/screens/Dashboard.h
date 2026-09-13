@@ -48,6 +48,7 @@ private:
     TopBar topBar_;
     ContextRail context_;
     ActionButton loadTrack_;
+    ActionButton listen_;
     WaveformStrip waveform_;
     IdentityRow identity_;
     ArrangementStrip arrangement_;

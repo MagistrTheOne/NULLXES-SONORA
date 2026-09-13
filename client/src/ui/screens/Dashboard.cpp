@@ -1,6 +1,5 @@
 #include "ui/screens/Dashboard.h"
 
-#include "backend/ClientLog.h"
 #include "ui/theme/Theme.h"
 
 namespace sonora
@@ -31,6 +30,14 @@ Dashboard::Dashboard(AppState& state)
 
     loadTrack_.setLabel("LOAD NEW TRACK");
     loadTrack_.onClick = [this] { chooseTrack(); };
+    listen_.setLabel("LISTEN");
+    listen_.onClick = [this] {
+        if (state_.isListening())
+            state_.stopListen();
+        else
+            state_.startListen();
+    };
+    addAndMakeVisible(listen_);
 
     addAndMakeVisible(topBar_);
     addAndMakeVisible(context_);
@@ -81,7 +88,6 @@ void Dashboard::chooseTrack()
                                   | juce::FileBrowserComponent::canSelectFiles;
     chooser_->launchAsync(chooserFlags, [this](const juce::FileChooser& chooser) {
         const auto file = chooser.getResult();
-        clientLog("FileChooser result=" + file.getFullPathName());
         if (file.existsAsFile())
             state_.analyzeFile(file);
     });
@@ -99,7 +105,10 @@ void Dashboard::refreshFromState()
     const bool reference = complete && tab == WorkspaceTab::Reference;
     const bool advancedMix = mix && state_.uiMode() == UiMode::Advanced;
 
-    loadTrack_.setEnabled(stage != AnalysisState::Loading && stage != AnalysisState::Analyzing);
+    loadTrack_.setEnabled(stage != AnalysisState::Loading && stage != AnalysisState::Analyzing && !state_.isListening());
+    listen_.setVisible(state_.canCapture());
+    listen_.setEnabled(stage != AnalysisState::Loading);
+    listen_.setLabel(state_.isListening() ? "STOP" : "LISTEN");
     waveform_.setVisible(track);
     identity_.setVisible(track);
     arrangement_.setVisible(track);
@@ -146,7 +155,9 @@ void Dashboard::paint(juce::Graphics& g)
         inner.removeFromTop(10);
         g.setColour(colors::foreground());
         g.setFont(type::display(22.0f));
-        g.drawText("Load a track. SONORA will listen.", inner.removeFromTop(28), juce::Justification::centredLeft, true);
+        g.drawText(state_.canCapture() ? "Load a file or listen from the DAW."
+                                      : "Load a track. SONORA will listen.",
+                   inner.removeFromTop(28), juce::Justification::centredLeft, true);
         inner.removeFromTop(10);
         g.setColour(colors::mutedForeground());
         g.setFont(type::body(13.0f));
@@ -157,9 +168,11 @@ void Dashboard::paint(juce::Graphics& g)
 
     if (stage == AnalysisState::Loading || stage == AnalysisState::Analyzing)
     {
-        theme::drawSectionLabel(g, inner.removeFromTop(16), "LISTENING");
+        theme::drawSectionLabel(g, inner.removeFromTop(16), state_.isListening() ? "RECORDING" : "LISTENING");
         inner.removeFromTop(12);
-        Theme::drawBody(g, inner.removeFromTop(18), "SONORA is building a model of the track.");
+        Theme::drawBody(g, inner.removeFromTop(18),
+                        state_.isListening() ? "Play the track. Press STOP when you have the section."
+                                             : "SONORA is building a model of the track.");
         inner.removeFromTop(14);
         auto bar = inner.removeFromTop(10);
         g.setColour(colors::border());
@@ -212,6 +225,13 @@ void Dashboard::resized()
 
     auto loadRow = body.removeFromTop(32);
     loadTrack_.setBounds(loadRow.removeFromRight(148));
+    if (state_.canCapture())
+    {
+        loadRow.removeFromRight(8);
+        listen_.setBounds(loadRow.removeFromRight(88));
+    }
+    else
+        listen_.setBounds({});
 
     if (!complete)
     {

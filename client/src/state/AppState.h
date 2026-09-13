@@ -1,12 +1,13 @@
 #pragma once
 
-#include "backend/ApiClient.h"
 #include "backend/Fault.h"
+#include "engine/Engine.h"
 #include "models/AudioAnalysis.h"
 #include "models/Insight.h"
 #include "models/Issue.h"
 #include "ui/copy/HumanCopy.h"
 
+#include <juce_audio_basics/juce_audio_basics.h>
 #include <juce_events/juce_events.h>
 
 #include <atomic>
@@ -61,7 +62,7 @@ public:
     ~AppState() override;
 
     AnalysisState analysisState() const { return analysisState_; }
-    bool backendOnline() const { return backendOnline_; }
+    bool backendOnline() const { return true; }
     const Fault& fault() const { return fault_; }
     const juce::String& lastError() const { return fault_.reason; }
     float analyzeProgress() const { return analyzeProgress_; }
@@ -87,6 +88,8 @@ public:
     CanvasNode selectedNode() const { return selectedNode_; }
     UiMode uiMode() const { return uiMode_; }
     bool assistArmed() const { return assistArmed_; }
+    bool canCapture() const { return (bool) captureStart_; }
+    bool isListening() const { return listening_; }
     const models::TrackDna* dna() const;
 
     juce::String bpmLabel() const;
@@ -122,7 +125,12 @@ public:
     void disarmAssist();
     bool handleKeyPress(const juce::KeyPress& key);
     void pingHealth();
+    void setCaptureHooks(std::function<void()> start, std::function<void()> stop);
+    void startListen();
+    void stopListen();
+    void failListen(const juce::String& reason);
     void analyzeFile(const juce::File& file);
+    void analyzeBuffer(juce::AudioBuffer<float> buffer, double sampleRate, const juce::String& name);
     void requestEngineeringReport();
     void requestHarmony();
     void requestBass();
@@ -139,14 +147,16 @@ private:
     void runAsync(std::function<void()> work);
     void applyOnMessage(std::function<void()> fn);
     void resetGenerated();
+    void applyResult(engine::Result result, const juce::String& name);
 
-    ApiClient api_;
     std::unique_ptr<AudioPlayer> player_;
+    std::function<void()> captureStart_;
+    std::function<void()> captureStop_;
     std::atomic<bool> alive_ { true };
     std::atomic<int> inflight_ { 0 };
     AnalysisState analysisState_ { AnalysisState::Empty };
-    bool backendOnline_ = false;
     bool hasTrack_ = false;
+    bool listening_ = false;
     float analyzeProgress_ = 0.0f;
     Fault fault_;
     juce::String audioId_;

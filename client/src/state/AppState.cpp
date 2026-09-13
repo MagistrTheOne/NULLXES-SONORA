@@ -1,8 +1,7 @@
 #include "state/AppState.h"
 
 #include "audio/AudioPlayer.h"
-#include "backend/ClientLog.h"
-#include "backend/Dto.h"
+#include "engine/Engine.h"
 
 #include <thread>
 
@@ -372,6 +371,7 @@ void AppState::clearTrack()
 {
     if (player_ != nullptr)
         player_->unload();
+    listening_ = false;
     hasTrack_ = false;
     loadedFilename_.clear();
     analysis_.reset();
@@ -390,25 +390,76 @@ void AppState::clearTrack()
 
 void AppState::pingHealth()
 {
-    runAsync([this] {
-        const bool ok = api_.health();
-        auto profileJson = ok ? api_.getProfile() : juce::var();
-        applyOnMessage([this, ok, profileJson] {
-            backendOnline_ = ok;
-            if (!ok && analysisState_ == AnalysisState::Empty)
-                fault_ = api_.lastFault();
-            else if (ok && analysisState_ == AnalysisState::Empty)
-                fault_ = {};
-            if (ok && !profileJson.isVoid())
-                profile_ = dto::parseProfile(profileJson);
-            notify();
-        });
-    });
+    fault_ = {};
+    notify();
+}
+
+void AppState::setCaptureHooks(std::function<void()> start, std::function<void()> stop)
+{
+    captureStart_ = std::move(start);
+    captureStop_ = std::move(stop);
+}
+
+void AppState::startListen()
+{
+    if (captureStart_ == nullptr || listening_)
+        return;
+    listening_ = true;
+    hasTrack_ = true;
+    loadedFilename_ = "DAW capture";
+    analysisState_ = AnalysisState::Analyzing;
+    analyzeProgress_ = 0.12f;
+    fault_ = {};
+    notify();
+    captureStart_();
+}
+
+void AppState::stopListen()
+{
+    if (!listening_)
+        return;
+    listening_ = false;
+    if (captureStop_ != nullptr)
+        captureStop_();
+}
+
+void AppState::failListen(const juce::String& reason)
+{
+    listening_ = false;
+    analysisState_ = AnalysisState::Failed;
+    analyzeProgress_ = 0.0f;
+    fault_ = { "LISTEN FAILED", 0, reason };
+    notify();
+}
+
+void AppState::applyResult(engine::Result result, const juce::String& name)
+{
+    if (!result.ok())
+    {
+        analysisState_ = AnalysisState::Failed;
+        fault_ = { "ANALYSIS FAILED", 0, result.error };
+        notify();
+        return;
+    }
+    loadedFilename_ = name.toStdString();
+    audioId_ = "local";
+    analysisId_ = "local";
+    analysis_ = std::move(result.analysis);
+    issues_ = std::move(result.issues);
+    insights_.clear();
+    for (const auto& issue : issues_)
+        insights_.push_back(insightFromIssue(issue));
+    assistAdvice_ = engine::makeAssist(*analysis_, issues_);
+    analysisState_ = AnalysisState::Complete;
+    analyzeProgress_ = 1.0f;
+    selectedNode_ = CanvasNode::Understand;
+    tab_ = WorkspaceTab::Track;
+    fault_ = {};
+    notify();
 }
 
 void AppState::analyzeFile(const juce::File& file)
 {
-    clientLog("AppState analyzeFile " + file.getFullPathName());
     if (analysis_)
         previousAnalysis_ = *analysis_;
     hasTrack_ = true;
@@ -424,234 +475,115 @@ void AppState::analyzeFile(const juce::File& file)
     selectedNode_ = CanvasNode::Track;
     tab_ = WorkspaceTab::Track;
     assistArmed_ = false;
-    clientLog("AppState analyzeFile " + file.getFullPathName() + " bytes=" + juce::String(file.getSize()));
     notify();
 
     runAsync([this, file] {
         applyOnMessage([this] {
             analysisState_ = AnalysisState::Analyzing;
-            analyzeProgress_ = 0.18f;
+            analyzeProgress_ = 0.35f;
             notify();
         });
-
-        auto enqueued = api_.analyzeFile(file);
-        if (enqueued.isVoid())
+        juce::AudioBuffer<float> buffer;
+        double sr = 0.0;
+        juce::String error;
+        if (!engine::loadFile(file, buffer, sr, error))
         {
-            applyOnMessage([this] {
+            applyOnMessage([this, error] {
                 analysisState_ = AnalysisState::Failed;
-                fault_ = api_.lastFault();
-                if (fault_.empty())
-                    fault_ = { "UPLOAD FAILED", 0, "unknown error" };
+                fault_ = { "LOAD FAILED", 0, error };
                 notify();
             });
             return;
         }
+        auto result = engine::analyze(buffer, sr);
+        applyOnMessage([this, result = std::move(result), name = file.getFileName()]() mutable {
+            applyResult(std::move(result), name);
+        });
+    });
+}
 
-        const auto audioId = dto::parseAudioId(enqueued);
-        const auto analysisId = dto::parseAnalysisId(enqueued);
-        if (audioId.isEmpty())
-        {
-            applyOnMessage([this] {
-                analysisState_ = AnalysisState::Failed;
-                fault_ = { "UPLOAD FAILED", 0, "analyze response missing audio_id" };
-                notify();
-            });
-            return;
-        }
+void AppState::analyzeBuffer(juce::AudioBuffer<float> buffer, double sampleRate, const juce::String& name)
+{
+    if (analysis_)
+        previousAnalysis_ = *analysis_;
+    hasTrack_ = true;
+    loadedFilename_ = name.toStdString();
+    analysis_.reset();
+    issues_.clear();
+    resetGenerated();
+    listening_ = false;
+    fault_ = {};
+    analyzeProgress_ = 0.2f;
+    analysisState_ = AnalysisState::Analyzing;
+    selectedNode_ = CanvasNode::Track;
+    tab_ = WorkspaceTab::Track;
+    notify();
 
-        for (int i = 0; i < 90 && alive_; ++i)
-        {
-            auto detail = api_.getAudio(audioId);
-            const auto status = dto::parseAnalysisStatus(detail);
-            applyOnMessage([this, i] {
-                analyzeProgress_ = juce::jmin(0.95f, 0.22f + (float) i * 0.016f);
-                notify();
-            });
-
-            if (status == "completed")
-            {
-                models::AudioAnalysis parsed;
-                std::vector<models::Issue> parsedIssues;
-                const bool ok = dto::parseCompletedAnalysis(detail, parsed, parsedIssues);
-                applyOnMessage([this, ok, parsed, parsedIssues, audioId, analysisId] {
-                    audioId_ = audioId;
-                    analysisId_ = analysisId;
-                    if (ok)
-                    {
-                        analysis_ = parsed;
-                        issues_ = parsedIssues;
-                        insights_.clear();
-                        for (const auto& issue : parsedIssues)
-                            insights_.push_back(insightFromIssue(issue));
-                        analysisState_ = AnalysisState::Complete;
-                        analyzeProgress_ = 1.0f;
-                        selectedNode_ = CanvasNode::Understand;
-                        tab_ = WorkspaceTab::Track;
-                        fault_ = {};
-                        notify();
-                        requestAssist();
-                    }
-                    else
-                    {
-                        analysisState_ = AnalysisState::Failed;
-                        fault_ = { "ANALYSIS FAILED", 0, "payload incomplete" };
-                        notify();
-                    }
-                });
-                return;
-            }
-
-            if (status == "failed")
-            {
-                applyOnMessage([this, detail] {
-                    analysisState_ = AnalysisState::Failed;
-                    fault_ = { "ANALYSIS FAILED", 0, dto::parseError(detail) };
-                    if (fault_.reason.isEmpty())
-                        fault_.reason = "analysis failed";
-                    notify();
-                });
-                return;
-            }
-
-            juce::Thread::sleep(800);
-        }
-
-        applyOnMessage([this] {
-            analysisState_ = AnalysisState::Failed;
-            fault_ = { "ANALYSIS FAILED", 0, "timed out" };
-            notify();
+    runAsync([this, buffer = std::move(buffer), sampleRate, name] {
+        auto result = engine::analyze(buffer, sampleRate);
+        applyOnMessage([this, result = std::move(result), name]() mutable {
+            applyResult(std::move(result), name);
         });
     });
 }
 
 void AppState::requestEngineeringReport()
 {
-    if (analysisId_.isEmpty())
-        return;
-    runAsync([this] {
-        auto json = api_.generateReport(analysisId_);
-        applyOnMessage([this, json] {
-            if (json.isVoid())
-            {
-                fault_ = api_.lastFault();
-            }
-            else
-            {
-                insights_ = dto::parseInsights(json);
-                if (!issues_.empty() && !insights_.empty())
-                    insights_.front().confidence = issues_.front().severity;
-                fault_ = {};
-            }
-            notify();
-        });
-    });
+    requestAssist();
 }
 
 void AppState::requestHarmony()
 {
-    if (analysisId_.isEmpty())
+    if (!analysis_)
         return;
     setTab(WorkspaceTab::Create);
-    runAsync([this] {
-        auto json = api_.generateHarmony(analysisId_);
-        applyOnMessage([this, json] {
-            if (json.isVoid())
-                fault_ = api_.lastFault();
-            else
-            {
-                harmony_ = dto::parseHarmony(json);
-                fault_ = {};
-            }
-            notify();
-        });
-    });
+    harmony_ = engine::makeHarmony(*analysis_);
+    fault_ = {};
+    notify();
 }
 
 void AppState::requestBass()
 {
-    if (analysisId_.isEmpty())
+    if (!analysis_)
         return;
     setTab(WorkspaceTab::Create);
-    runAsync([this] {
-        auto json = api_.generateBass(analysisId_);
-        applyOnMessage([this, json] {
-            if (json.isVoid())
-                fault_ = api_.lastFault();
-            else
-            {
-                bassClip_ = dto::parseMidiClip(json);
-                fault_ = {};
-            }
-            notify();
-        });
-    });
+    bassClip_ = engine::makeBass(*analysis_);
+    fault_ = {};
+    notify();
 }
 
 void AppState::requestPad()
 {
-    if (analysisId_.isEmpty())
+    if (!analysis_)
         return;
     setTab(WorkspaceTab::Create);
-    runAsync([this] {
-        auto json = api_.generatePad(analysisId_);
-        applyOnMessage([this, json] {
-            if (json.isVoid())
-                fault_ = api_.lastFault();
-            else
-            {
-                padClip_ = dto::parseMidiClip(json);
-                fault_ = {};
-            }
-            notify();
-        });
-    });
+    padClip_ = engine::makePad(*analysis_);
+    fault_ = {};
+    notify();
 }
 
 void AppState::requestDrop()
 {
-    if (analysisId_.isEmpty())
+    if (!analysis_)
         return;
-    runAsync([this] {
-        auto json = api_.generateDrop(analysisId_);
-        applyOnMessage([this, json] {
-            if (json.isVoid())
-                fault_ = api_.lastFault();
-            else
-            {
-                dropPlan_ = dto::parseDropPlan(json);
-                models::EqProfile profile;
-                profile.operation = "EQ";
-                profile.target = dropPlan_->sectionName.empty() ? "drop" : dropPlan_->sectionName;
-                profile.frequencyHz = dropPlan_->frequency;
-                profile.gainDb = dropPlan_->gain;
-                eqProfile_ = profile;
-                fault_ = {};
-            }
-            notify();
-        });
-    });
+    dropPlan_ = engine::makeDrop(*analysis_);
+    models::EqProfile profile;
+    profile.operation = "EQ";
+    profile.target = dropPlan_->sectionName.empty() ? "drop" : dropPlan_->sectionName;
+    profile.frequencyHz = dropPlan_->frequency;
+    profile.gainDb = dropPlan_->gain;
+    eqProfile_ = profile;
+    fault_ = {};
+    notify();
 }
 
 void AppState::requestAssist()
 {
-    if (analysisId_.isEmpty())
+    if (!analysis_)
         return;
-    runAsync([this] {
-        auto json = api_.requestAssist(analysisId_);
-        applyOnMessage([this, json] {
-            if (json.isVoid())
-            {
-                if (assistAdvice_)
-                    fault_ = api_.lastFault();
-            }
-            else
-            {
-                assistAdvice_ = dto::parseAssist(json);
-                fault_ = {};
-            }
-            notify();
-        });
-    });
+    assistAdvice_ = engine::makeAssist(*analysis_, issues_);
+    fault_ = {};
+    notify();
 }
 
 void AppState::applyAssistOption(const juce::String& id)
@@ -672,19 +604,26 @@ void AppState::applyAssistOption(const juce::String& id)
 
 void AppState::compareReference(const juce::File& file)
 {
-    if (audioId_.isEmpty())
+    if (!analysis_)
         return;
     referenceBusy_ = true;
     notify();
     runAsync([this, file] {
-        auto json = api_.compareReference(audioId_, file);
-        applyOnMessage([this, json] {
+        juce::AudioBuffer<float> buffer;
+        double sr = 0.0;
+        juce::String error;
+        engine::Result ref;
+        if (engine::loadFile(file, buffer, sr, error))
+            ref = engine::analyze(buffer, sr);
+        else
+            ref.error = error;
+        applyOnMessage([this, ref = std::move(ref), name = file.getFileName()]() mutable {
             referenceBusy_ = false;
-            if (json.isVoid())
-                fault_ = api_.lastFault();
+            if (!ref.ok() || !analysis_)
+                fault_ = { "REFERENCE FAILED", 0, ref.error.isEmpty() ? "cannot compare" : ref.error };
             else
             {
-                reference_ = dto::parseReference(json);
+                reference_ = engine::compare(*analysis_, ref.analysis, juce::String(loadedFilename_), name);
                 fault_ = {};
             }
             notify();

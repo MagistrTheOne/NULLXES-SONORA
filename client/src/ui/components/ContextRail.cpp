@@ -30,16 +30,15 @@ void ContextRail::paint(juce::Graphics& g)
     };
 
     const juce::String track = state_.hasTrack() ? juce::String(state_.loadedFilename()) : "NO TRACK";
-    juce::String engine = "DSP OFFLINE";
-    if (state_.backendOnline())
-    {
-        if (state_.analysisState() == AnalysisState::Failed)
-            engine = "DSP FAILED";
-        else if (state_.analysisState() == AnalysisState::Analyzing || state_.analysisState() == AnalysisState::Loading)
-            engine = "LISTENING";
-        else
-            engine = "DSP READY";
-    }
+    juce::String engine = "LOCAL DSP";
+    if (state_.analysisState() == AnalysisState::Failed)
+        engine = "DSP FAILED";
+    else if (state_.isListening()
+             || state_.analysisState() == AnalysisState::Analyzing
+             || state_.analysisState() == AnalysisState::Loading)
+        engine = "LISTENING";
+    else if (state_.analysisState() == AnalysisState::Complete)
+        engine = "DSP READY";
 
     drawBlock("TRACK", { track });
     drawBlock("DURATION", { state_.durationLabel() });

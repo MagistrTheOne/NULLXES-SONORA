@@ -1,12 +1,11 @@
 cmake_minimum_required(VERSION 3.22)
 
-project(sonora-runtime VERSION 0.4.0 LANGUAGES CXX)
+project(sonora-runtime VERSION 1.0.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-# Prefer a local JUCE tree. FetchContent + paths with spaces breaks on Windows.
 set(SONORA_JUCE_DIR "$ENV{SONORA_JUCE_DIR}" CACHE PATH "JUCE 8 source tree")
 if(NOT SONORA_JUCE_DIR)
     if(EXISTS "D:/NULLXES/_cache/JUCE-8.0.8/CMakeLists.txt")
@@ -29,30 +28,13 @@ else()
     FetchContent_MakeAvailable(juce)
 endif()
 
-juce_add_gui_app(SONORA
-    PRODUCT_NAME "SONORA"
-    COMPANY_NAME "NULLXES"
-    BUNDLE_ID com.nullxes.sonora
-    VERSION 0.4.0
-    NEEDS_WEB_BROWSER FALSE
-)
-
-juce_generate_juce_header(SONORA)
-
-target_sources(SONORA PRIVATE
-    src/app/Application.cpp
-    src/app/MainWindow.h
-    src/app/MainWindow.cpp
+set(SONORA_SHARED_SOURCES
     src/state/AppState.h
     src/state/AppState.cpp
     src/backend/ClientLog.h
     src/backend/Fault.h
-    src/backend/HttpTransport.h
-    src/backend/HttpTransport.cpp
-    src/backend/Dto.h
-    src/backend/Dto.cpp
-    src/backend/ApiClient.h
-    src/backend/ApiClient.cpp
+    src/engine/Engine.h
+    src/engine/Engine.cpp
     src/audio/AudioPlayer.h
     src/audio/AudioPlayer.cpp
     src/models/AudioAnalysis.h
@@ -110,20 +92,7 @@ target_sources(SONORA PRIVATE
     src/ui/screens/Dashboard.cpp
 )
 
-target_include_directories(SONORA PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/src
-)
-
-target_compile_definitions(SONORA PRIVATE
-    JUCE_WEB_BROWSER=0
-    JUCE_USE_CURL=0
-    JUCE_USE_FLAC=1
-    JUCE_USE_MP3AUDIOFORMAT=1
-    JUCE_APPLICATION_NAME_STRING="$<TARGET_PROPERTY:SONORA,JUCE_PRODUCT_NAME>"
-    JUCE_APPLICATION_VERSION_STRING="$<TARGET_PROPERTY:SONORA,JUCE_VERSION>"
-)
-
-target_link_libraries(SONORA PRIVATE
+set(SONORA_JUCE_LIBS
     juce::juce_core
     juce::juce_data_structures
     juce::juce_events
@@ -134,10 +103,92 @@ target_link_libraries(SONORA PRIVATE
     juce::juce_audio_devices
     juce::juce_audio_formats
     juce::juce_audio_utils
+    juce::juce_dsp
     juce::juce_recommended_config_flags
     juce::juce_recommended_warning_flags
 )
 
-if(WIN32)
-    target_link_libraries(SONORA PRIVATE winhttp)
-endif()
+juce_add_gui_app(SONORA
+    PRODUCT_NAME "SONORA"
+    COMPANY_NAME "NULLXES"
+    BUNDLE_ID com.nullxes.sonora
+    VERSION 1.0.0
+    NEEDS_WEB_BROWSER FALSE
+)
+
+juce_generate_juce_header(SONORA)
+
+target_sources(SONORA PRIVATE
+    src/app/Application.cpp
+    src/app/MainWindow.h
+    src/app/MainWindow.cpp
+    ${SONORA_SHARED_SOURCES}
+)
+
+target_include_directories(SONORA PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+
+target_compile_definitions(SONORA PRIVATE
+    JUCE_WEB_BROWSER=0
+    JUCE_USE_CURL=0
+    JUCE_USE_FLAC=1
+    JUCE_USE_MP3AUDIOFORMAT=1
+    JUCE_DISPLAY_SPLASH_SCREEN=0
+    _CRT_SECURE_NO_WARNINGS
+    JUCE_APPLICATION_NAME_STRING="$<TARGET_PROPERTY:SONORA,JUCE_PRODUCT_NAME>"
+    JUCE_APPLICATION_VERSION_STRING="$<TARGET_PROPERTY:SONORA,JUCE_VERSION>"
+)
+
+target_link_libraries(SONORA PRIVATE ${SONORA_JUCE_LIBS})
+
+juce_add_plugin(SONORA_VST3
+    PRODUCT_NAME "SONORA"
+    COMPANY_NAME "NULLXES"
+    BUNDLE_ID com.nullxes.sonora.vst3
+    PLUGIN_MANUFACTURER_CODE Nlxs
+    PLUGIN_CODE Sonr
+    FORMATS VST3
+    VERSION 1.0.0
+    IS_SYNTH FALSE
+    NEEDS_MIDI_INPUT FALSE
+    NEEDS_MIDI_OUTPUT FALSE
+    IS_MIDI_EFFECT FALSE
+    EDITOR_WANTS_KEYBOARD_FOCUS TRUE
+    COPY_PLUGIN_AFTER_BUILD FALSE
+    VST3_CATEGORIES "Fx Analyzer"
+    DESCRIPTION "Adaptive Sound Intelligence"
+)
+
+juce_generate_juce_header(SONORA_VST3)
+
+target_sources(SONORA_VST3 PRIVATE
+    ${SONORA_SHARED_SOURCES}
+    ${CMAKE_CURRENT_SOURCE_DIR}/../plugin/PluginProcessor.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/../plugin/PluginProcessor.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../plugin/PluginEditor.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/../plugin/PluginEditor.cpp
+)
+
+target_include_directories(SONORA_VST3 PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${CMAKE_CURRENT_SOURCE_DIR}/../plugin
+)
+
+target_compile_definitions(SONORA_VST3 PRIVATE
+    JUCE_WEB_BROWSER=0
+    JUCE_USE_CURL=0
+    JUCE_USE_FLAC=1
+    JUCE_USE_MP3AUDIOFORMAT=1
+    JUCE_DISPLAY_SPLASH_SCREEN=0
+    JUCE_VST3_CAN_REPLACE_VST2=0
+    SONORA_IS_PLUGIN=1
+    _CRT_SECURE_NO_WARNINGS
+    JUCE_APPLICATION_NAME_STRING="SONORA"
+    JUCE_APPLICATION_VERSION_STRING="1.0.0"
+)
+
+target_link_libraries(SONORA_VST3 PRIVATE
+    ${SONORA_JUCE_LIBS}
+    juce::juce_audio_processors
+)

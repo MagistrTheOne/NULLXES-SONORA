@@ -19,8 +19,8 @@ public:
 
 private:
     PluginProcessor& processor_;
-    AppState state_;
-    Dashboard dashboard_ { state_ };
+    AppState& state_;
+    Dashboard dashboard_;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PluginEditor)
 };

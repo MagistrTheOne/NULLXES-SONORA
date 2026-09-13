@@ -7,21 +7,25 @@ namespace sonora
 
 TopBar::TopBar(AppState& state) : state_(state)
 {
-    bind(track, WorkspaceTab::Track, true);
-    bind(mix, WorkspaceTab::Mix, true);
-    bind(arrangement, WorkspaceTab::Arrangement, true);
-    bind(create, WorkspaceTab::Create, true);
-    bind(reference, WorkspaceTab::Reference, true);
+    bind(listen, WorkspaceTab::Listen);
+    bind(improve, WorkspaceTab::Improve);
+    bind(create, WorkspaceTab::Create);
+    addAndMakeVisible(lab);
+    lab.onClick = [this] {
+        if (state_.labOpen())
+            state_.closeLab();
+        else
+            state_.openLab();
+    };
     addAndMakeVisible(advanced);
     advanced.onClick = [this] { state_.toggleUiMode(); };
 }
 
-void TopBar::bind(juce::TextButton& button, WorkspaceTab tab, bool enabled)
+void TopBar::bind(juce::TextButton& button, WorkspaceTab tab)
 {
     addAndMakeVisible(button);
-    if (enabled)
-        button.onClick = [this, tab] { state_.setTab(tab); };
-    style(button, state_.tab() == tab, enabled);
+    button.onClick = [this, tab] { state_.setTab(tab); };
+    style(button, state_.tab() == tab, true);
 }
 
 void TopBar::style(juce::TextButton& button, bool active, bool enabled)
@@ -37,16 +41,15 @@ void TopBar::style(juce::TextButton& button, bool active, bool enabled)
 void TopBar::paint(juce::Graphics& g)
 {
     const auto tab = state_.tab();
-    style(track, tab == WorkspaceTab::Track, true);
-    style(mix, tab == WorkspaceTab::Mix, true);
-    style(arrangement, tab == WorkspaceTab::Arrangement, true);
+    style(listen, tab == WorkspaceTab::Listen, true);
+    style(improve, tab == WorkspaceTab::Improve, true);
     style(create, tab == WorkspaceTab::Create, true);
-    style(reference, tab == WorkspaceTab::Reference, true);
+    style(lab, state_.labOpen(), true);
     advanced.setButtonText(state_.uiMode() == UiMode::Advanced ? "ADVANCED" : "SIMPLE");
     style(advanced, state_.uiMode() == UiMode::Advanced, true);
 
     auto bounds = getLocalBounds();
-    auto brand = bounds.removeFromLeft(220);
+    auto brand = bounds.removeFromLeft(240);
     g.setColour(colors::muted());
     g.setFont(type::label(10.0f));
     g.drawText("NULLXES", brand.removeFromTop(16), juce::Justification::centredLeft, true);
@@ -61,17 +64,13 @@ void TopBar::paint(juce::Graphics& g)
     g.setColour(colors::mutedForeground());
     g.setFont(type::label(10.0f));
     g.drawText("SESSION 001", hud.removeFromTop(16), juce::Justification::centredRight, true);
-    g.drawText("LOCAL MODE", hud.removeFromTop(16), juce::Justification::centredRight, true);
+    g.drawText("LOCAL ENGINE", hud.removeFromTop(16), juce::Justification::centredRight, true);
 
-    juce::TextButton* active = &track;
-    switch (tab)
-    {
-        case WorkspaceTab::Mix: active = &mix; break;
-        case WorkspaceTab::Arrangement: active = &arrangement; break;
-        case WorkspaceTab::Create: active = &create; break;
-        case WorkspaceTab::Reference: active = &reference; break;
-        default: break;
-    }
+    juce::TextButton* active = &listen;
+    if (tab == WorkspaceTab::Improve)
+        active = &improve;
+    else if (tab == WorkspaceTab::Create)
+        active = &create;
     g.setColour(Theme::border());
     g.fillRect(0, getHeight() - 1, getWidth(), 1);
     g.setColour(Theme::accent());
@@ -81,15 +80,15 @@ void TopBar::paint(juce::Graphics& g)
 void TopBar::resized()
 {
     auto bounds = getLocalBounds();
-    bounds.removeFromLeft(240);
+    bounds.removeFromLeft(260);
     auto right = bounds.removeFromRight(280);
     advanced.setBounds(right.removeFromBottom(22).removeFromRight(90));
-    const int w = bounds.getWidth() / 5;
-    track.setBounds(bounds.removeFromLeft(w));
-    mix.setBounds(bounds.removeFromLeft(w));
-    arrangement.setBounds(bounds.removeFromLeft(w));
-    create.setBounds(bounds.removeFromLeft(w));
-    reference.setBounds(bounds);
+    right.removeFromRight(10);
+    lab.setBounds(right.removeFromBottom(22).removeFromRight(56));
+    const int w = bounds.getWidth() / 3;
+    listen.setBounds(bounds.removeFromLeft(w));
+    improve.setBounds(bounds.removeFromLeft(w));
+    create.setBounds(bounds);
 }
 
 } // namespace sonora

@@ -1,60 +1,33 @@
-# SONORA Runtime (v0.3.1)
+# SONORA Runtime (v1.0.1)
 
-Standalone desktop shell. Native JUCE 8, no WebView, no VST yet.
+Standalone and VST3. Native JUCE 8, no WebView, no Python at runtime.
 
-This target is `SONORA.exe`. The future VST lives in `../plugin/`.
+This target builds `SONORA.exe` and `SONORA.vst3`. DSP runs in-process.
 
 ## Build (Windows / Visual Studio 2022)
 
 ```bat
 cd client
 cmake -B build -G "Visual Studio 17 2022" -A x64 -DSONORA_JUCE_DIR=D:/NULLXES/_cache/JUCE-8.0.8
-cmake --build build --config Release
+cmake --build build --config Release --target SONORA
+cmake --build build --config Release --target SONORA_VST3_VST3
 ```
 
 JUCE 8.0.8 is expected at `SONORA_JUCE_DIR` (or `client/third_party/JUCE`).
-A workspace path with spaces breaks FetchContent on Windows — clone JUCE to a path without spaces:
 
-```bat
-git clone --depth 1 --branch 8.0.8 https://github.com/juce-framework/JUCE.git D:\NULLXES\_cache\JUCE-8.0.8
-```
-
-Binary:
+Binaries:
 
 ```
 client\build\SONORA_artefacts\Release\SONORA.exe
+client\build\SONORA_VST3_artefacts\Release\VST3\SONORA.vst3
 ```
 
 ## Workflow
 
-UI lives off `AppState` / `AnalysisState`:
+`LISTEN` — what the track is.  
+`IMPROVE` — mix health, problems, actions.  
+`CREATE` — chord, bass, arrangement, MIDI.
 
-`Empty → Loading → Analyzing → Complete | Failed`
+Ctrl+L opens SONORA LAB. It is a tool, not a chat.
 
-```
-LOAD TRACK → ANALYZING → TRACK INTELLIGENCE → ENGINEERING REPORT → ACTION
-```
-
-Empty shows NO TRACK. Analyzing shows DSP progress. Complete opens TRACK: character, mix health, arrangement, Assist. DNA and methods stay in Advanced. Ctrl+L arms SONORA ASSIST. No LLM in this layer.
-
-## Backend
-
-Runtime talks to the FastAPI brain. Raise it separately (do not start Docker from here unless you intend to):
-
-```bat
-cd backend
-uvicorn app.main:app --reload
-```
-
-Default API: `http://127.0.0.1:8000`
-
-Used by the client:
-
-- `GET /health`
-- `POST /api/v1/audio/analyze` (multipart file)
-- `GET /api/v1/audio/{id}`
-- `POST /api/v1/recommendation/generate`
-- `POST /api/v1/generate/harmony`
-- `GET /api/v1/profile`
-
-Harmony is MIDI-first JSON (`key`, `bars`, `chords`). No audio generation.
+The VST does not analyze in the audio callback. One engine session is shared across plugin windows. LISTEN records only from the instance you armed.

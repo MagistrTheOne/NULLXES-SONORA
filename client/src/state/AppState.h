@@ -33,11 +33,9 @@ enum class AnalysisState
 
 enum class WorkspaceTab
 {
-    Track,
-    Mix,
-    Arrangement,
-    Create,
-    Reference
+    Listen,
+    Improve,
+    Create
 };
 
 enum class CanvasNode
@@ -87,7 +85,9 @@ public:
     WorkspaceTab tab() const { return tab_; }
     CanvasNode selectedNode() const { return selectedNode_; }
     UiMode uiMode() const { return uiMode_; }
-    bool assistArmed() const { return assistArmed_; }
+    bool assistArmed() const { return labOpen_; }
+    bool labOpen() const { return labOpen_; }
+    bool referenceOpen() const { return referenceOpen_; }
     bool canCapture() const { return (bool) captureStart_; }
     bool isListening() const { return listening_; }
     const models::TrackDna* dna() const;
@@ -101,6 +101,9 @@ public:
     juce::String issueCountLabel() const;
     juce::String objectCountLabel() const;
     juce::String styleLabel() const;
+    juce::String energyLabel() const;
+    float energyNow() const;
+    std::vector<copy::IdentityAxis> sonicIdentity() const;
     std::vector<juce::String> profileLines() const;
     std::vector<juce::String> moodLabels() const;
     int healthScore() const;
@@ -114,6 +117,7 @@ public:
     bool isPlaying() const;
     float playhead() const;
     juce::String playheadLabel() const;
+    float playheadSeconds() const;
     void togglePlayback();
     void seekPlayhead(float amount);
 
@@ -123,6 +127,12 @@ public:
     void toggleUiMode();
     void armAssist();
     void disarmAssist();
+    void openLab();
+    void closeLab();
+    void openReference();
+    void closeReference();
+    void armCapture(void* token);
+    void* captureToken() const { return captureToken_; }
     bool handleKeyPress(const juce::KeyPress& key);
     void pingHealth();
     void setCaptureHooks(std::function<void()> start, std::function<void()> stop);
@@ -136,10 +146,12 @@ public:
     void requestBass();
     void requestPad();
     void requestDrop();
+    void requestArrangement();
     void requestAssist();
     void applyAssistOption(const juce::String& id);
     void compareReference(const juce::File& file);
     void createEqProfile();
+    bool writeMidiFile(const juce::File& file, juce::String& error) const;
     void clearTrack();
 
 private:
@@ -175,10 +187,12 @@ private:
     std::optional<models::ReferenceReport> reference_;
     bool referenceBusy_ = false;
     models::SessionProfile profile_;
-    WorkspaceTab tab_ { WorkspaceTab::Track };
+    WorkspaceTab tab_ { WorkspaceTab::Listen };
     CanvasNode selectedNode_ { CanvasNode::Track };
     UiMode uiMode_ { UiMode::Simple };
-    bool assistArmed_ = false;
+    bool labOpen_ = false;
+    bool referenceOpen_ = false;
+    void* captureToken_ = nullptr;
 
     JUCE_DECLARE_WEAK_REFERENCEABLE(AppState)
 };

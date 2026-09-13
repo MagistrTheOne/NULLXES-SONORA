@@ -25,6 +25,7 @@ private:
     void seekFrom(const juce::MouseEvent& event);
 
     AppState& state_;
+    float phase_ = 0.0f;
 };
 
 } // namespace sonora

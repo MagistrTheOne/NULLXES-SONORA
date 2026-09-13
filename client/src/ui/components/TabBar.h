@@ -16,11 +16,9 @@ public:
 
 private:
     AppState& state_;
-    juce::TextButton overview { "OVERVIEW" };
-    juce::TextButton dna { "DNA" };
-    juce::TextButton structure { "STRUCTURE" };
-    juce::TextButton spectrum { "SPECTRUM" };
-    juce::TextButton generate { "CREATE" };
+    juce::TextButton listen { "LISTEN" };
+    juce::TextButton improve { "IMPROVE" };
+    juce::TextButton create { "CREATE" };
 
     void bind(juce::TextButton& button, WorkspaceTab tab);
 };

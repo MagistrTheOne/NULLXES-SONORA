@@ -44,7 +44,13 @@ void ContextRail::paint(juce::Graphics& g)
     drawBlock("DURATION", { state_.durationLabel() });
     drawBlock("FORMAT", { state_.channelLabel(), state_.sampleRateLabel(), state_.bitDepthLabel() });
     drawBlock("ENGINE", { engine });
-    drawBlock("PROFILE", state_.profileLines());
+
+    std::vector<juce::String> identity;
+    for (const auto& axis : state_.sonicIdentity())
+        identity.push_back(axis.name + "  " + juce::String(juce::roundToInt(axis.value * 100.0f)) + "%");
+    if (identity.empty())
+        identity.emplace_back("Waiting");
+    drawBlock("IDENTITY", identity);
 }
 
 } // namespace sonora

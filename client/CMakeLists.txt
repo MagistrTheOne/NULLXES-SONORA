@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.22)
 
-project(sonora-runtime VERSION 1.0.0 LANGUAGES CXX)
+project(sonora-runtime VERSION 1.0.1 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -56,6 +56,14 @@ set(SONORA_SHARED_SOURCES
     src/ui/components/SpectrumView.cpp
     src/ui/components/InsightPanel.h
     src/ui/components/InsightPanel.cpp
+    src/ui/components/SonicIdentity.h
+    src/ui/components/SonicIdentity.cpp
+    src/ui/components/ProblemsView.h
+    src/ui/components/ProblemsView.cpp
+    src/ui/components/ActionsPanel.h
+    src/ui/components/ActionsPanel.cpp
+    src/ui/components/LabOverlay.h
+    src/ui/components/LabOverlay.cpp
     src/ui/components/StatusRail.h
     src/ui/components/StatusRail.cpp
     src/ui/components/TopBar.h
@@ -112,7 +120,7 @@ juce_add_gui_app(SONORA
     PRODUCT_NAME "SONORA"
     COMPANY_NAME "NULLXES"
     BUNDLE_ID com.nullxes.sonora
-    VERSION 1.0.0
+    VERSION 1.0.1
     NEEDS_WEB_BROWSER FALSE
 )
 
@@ -149,7 +157,7 @@ juce_add_plugin(SONORA_VST3
     PLUGIN_MANUFACTURER_CODE Nlxs
     PLUGIN_CODE Sonr
     FORMATS VST3
-    VERSION 1.0.0
+    VERSION 1.0.1
     IS_SYNTH FALSE
     NEEDS_MIDI_INPUT FALSE
     NEEDS_MIDI_OUTPUT FALSE
@@ -168,6 +176,8 @@ target_sources(SONORA_VST3 PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/../plugin/PluginProcessor.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../plugin/PluginEditor.h
     ${CMAKE_CURRENT_SOURCE_DIR}/../plugin/PluginEditor.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../plugin/EngineHost.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/../plugin/EngineHost.cpp
 )
 
 target_include_directories(SONORA_VST3 PRIVATE
@@ -185,7 +195,7 @@ target_compile_definitions(SONORA_VST3 PRIVATE
     SONORA_IS_PLUGIN=1
     _CRT_SECURE_NO_WARNINGS
     JUCE_APPLICATION_NAME_STRING="SONORA"
-    JUCE_APPLICATION_VERSION_STRING="1.0.0"
+    JUCE_APPLICATION_VERSION_STRING="1.0.1"
 )
 
 target_link_libraries(SONORA_VST3 PRIVATE

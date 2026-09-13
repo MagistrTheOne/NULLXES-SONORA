@@ -4,9 +4,11 @@
 #include <juce_dsp/juce_dsp.h>
 
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <numeric>
 #include <utility>
 
@@ -1242,12 +1244,130 @@ models::AssistAdvice makeAssist(const models::AudioAnalysis& analysis, const std
         advice.detail = "No urgent collision. Create the next object when you want to move.";
     }
     advice.options = {
-        { "strengthen_drop", "Strengthen drop" },
-        { "create_bass", "Create bass" },
-        { "fix_vocal_space", "Fix vocal space" },
-        { "compare_reference", "Compare reference" },
+        { "strengthen_drop", "Make drop stronger" },
+        { "create_bass", "Create bass variation" },
+        { "fix_vocal_space", "Open vocal space" },
+        { "build_arrangement", "Build arrangement" },
     };
     return advice;
+}
+
+namespace
+{
+int parseMidiNote(const std::string& token, int fallbackOctave)
+{
+    if (token.empty())
+        return -1;
+    int pc = -1;
+    switch (std::toupper(static_cast<unsigned char>(token[0])))
+    {
+        case 'C': pc = 0; break;
+        case 'D': pc = 2; break;
+        case 'E': pc = 4; break;
+        case 'F': pc = 5; break;
+        case 'G': pc = 7; break;
+        case 'A': pc = 9; break;
+        case 'B': pc = 11; break;
+        default: return -1;
+    }
+    size_t i = 1;
+    if (i < token.size() && (token[i] == '#' || token[i] == 'b'))
+    {
+        pc += token[i] == '#' ? 1 : -1;
+        ++i;
+    }
+    while (i < token.size() && !std::isdigit(static_cast<unsigned char>(token[i])) && token[i] != '-')
+        ++i;
+    int octave = fallbackOctave;
+    if (i < token.size())
+        octave = std::atoi(token.c_str() + (int) i);
+    pc = ((pc % 12) + 12) % 12;
+    return juce::jlimit(0, 127, (octave + 1) * 12 + pc);
+}
+
+void addNote(juce::MidiMessageSequence& seq, int note, int startTick, int length, int channel, int velocity)
+{
+    if (note < 0)
+        return;
+    seq.addEvent(juce::MidiMessage::noteOn(channel, note, (juce::uint8) velocity), (double) startTick);
+    seq.addEvent(juce::MidiMessage::noteOff(channel, note), (double) (startTick + length));
+}
+
+void writeClip(juce::MidiMessageSequence& seq, const models::MidiClip& clip, int channel, int octave)
+{
+    const int bar = 1920;
+    const int noteLen = 1680;
+    if (!clip.notes.empty())
+    {
+        for (int i = 0; i < juce::jmax(clip.bars, (int) clip.notes.size()); ++i)
+        {
+            const auto& token = clip.notes[(size_t) i % clip.notes.size()];
+            addNote(seq, parseMidiNote(token, octave), i * bar, noteLen, channel, 90);
+        }
+        return;
+    }
+    for (int i = 0; i < juce::jmax(clip.bars, (int) clip.chords.size()); ++i)
+    {
+        if (clip.chords.empty())
+            break;
+        const int root = parseMidiNote(clip.chords[(size_t) i % clip.chords.size()], octave);
+        addNote(seq, root, i * bar, noteLen, channel, 80);
+        addNote(seq, root >= 0 ? root + 7 : -1, i * bar, noteLen, channel, 70);
+    }
+}
+} // namespace
+
+bool writeMidiFile(
+    const juce::File& file,
+    const std::optional<models::Harmony>& harmony,
+    const std::optional<models::MidiClip>& bass,
+    const std::optional<models::MidiClip>& pad,
+    juce::String& error)
+{
+    if (!harmony && !bass && !pad)
+    {
+        error = "Create a chord, bass, or pad object first.";
+        return false;
+    }
+
+    juce::MidiFile midi;
+    midi.setTicksPerQuarterNote(480);
+    juce::MidiMessageSequence seq;
+    if (harmony)
+    {
+        const int bar = 1920;
+        for (int i = 0; i < juce::jmax(harmony->bars, (int) harmony->chords.size()); ++i)
+        {
+            if (harmony->chords.empty())
+                break;
+            const int root = parseMidiNote(harmony->chords[(size_t) i % harmony->chords.size()], 3);
+            addNote(seq, root, i * bar, 1800, 1, 84);
+            addNote(seq, root >= 0 ? root + 4 : -1, i * bar, 1800, 1, 76);
+            addNote(seq, root >= 0 ? root + 7 : -1, i * bar, 1800, 1, 76);
+        }
+    }
+    if (bass)
+        writeClip(seq, *bass, 2, 1);
+    if (pad)
+        writeClip(seq, *pad, 3, 3);
+    seq.updateMatchedPairs();
+    midi.addTrack(seq);
+
+    file.getParentDirectory().createDirectory();
+    juce::FileOutputStream stream(file);
+    if (stream.failedToOpen())
+    {
+        error = "Cannot write MIDI file.";
+        return false;
+    }
+    stream.setPosition(0);
+    stream.truncate();
+    if (!midi.writeTo(stream))
+    {
+        error = "MIDI write failed.";
+        return false;
+    }
+    return true;
 }
 
 models::ReferenceReport compare(

@@ -1,4 +1,5 @@
 #include "PluginEditor.h"
+#include "EngineHost.h"
 
 namespace sonora
 {
@@ -6,19 +7,13 @@ namespace sonora
 PluginEditor::PluginEditor(PluginProcessor& processor)
     : juce::AudioProcessorEditor(processor)
     , processor_(processor)
+    , state_(EngineHost::get().session())
+    , dashboard_(state_)
 {
-    setOpaque(true);
-    state_.setCaptureHooks(
-        [this] { processor_.startListen(); },
-        [this] {
-            juce::AudioBuffer<float> buffer;
-            double sampleRate = 44100.0;
-            if (processor_.takeCapture(buffer, sampleRate))
-                state_.analyzeBuffer(std::move(buffer), sampleRate, "DAW capture");
-            else
-                state_.failListen("Play the track in the DAW, then press STOP.");
-        });
+    EngineHost::get().installHooks();
+    dashboard_.setCaptureSite([this] { return (void*) &processor_; });
 
+    setOpaque(true);
     addAndMakeVisible(dashboard_);
     setResizeLimits(1280, 800, 4096, 2160);
     setResizable(true, false);

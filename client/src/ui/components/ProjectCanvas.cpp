@@ -83,8 +83,8 @@ juce::Rectangle<int> ProjectCanvas::nodeBounds(int index) const
 {
     auto bounds = getLocalBounds().reduced(18, 12);
     bounds.removeFromTop(22);
-    const int gap = 10;
-    const int w = (bounds.getWidth() - gap * 4) / 5;
+    const int gap = 12;
+    const int w = (bounds.getWidth() - gap * 2) / 3;
     return juce::Rectangle<int>(bounds.getX() + index * (w + gap), bounds.getY(), w, bounds.getHeight());
 }
 
@@ -92,12 +92,10 @@ void ProjectCanvas::mouseDown(const juce::MouseEvent& event)
 {
     const CanvasNode nodes[] = {
         CanvasNode::Track,
-        CanvasNode::Understand,
         CanvasNode::Improve,
-        CanvasNode::Create,
-        CanvasNode::Export
+        CanvasNode::Create
     };
-    for (int i = 0; i < 5; ++i)
+    for (int i = 0; i < 3; ++i)
     {
         if (nodeBounds(i).contains(event.getPosition()))
         {
@@ -111,55 +109,41 @@ void ProjectCanvas::paint(juce::Graphics& g)
 {
     theme::fillCard(g, getLocalBounds());
     auto title = getLocalBounds().reduced(18, 12);
-    Theme::drawLabel(g, title.removeFromTop(12), "PROJECT CANVAS");
+    Theme::drawLabel(g, title.removeFromTop(12), "WHAT NOW");
 
     const auto stage = state_.analysisState();
-    const auto* dna = state_.dna();
     const auto selected = state_.selectedNode();
     const bool ready = stage == AnalysisState::Complete;
 
-    NodeState track = state_.hasTrack() ? NodeState::Loaded : NodeState::Idle;
-    NodeState understand = NodeState::Idle;
+    NodeState listen = state_.hasTrack() ? NodeState::Loaded : NodeState::Idle;
     if (stage == AnalysisState::Loading || stage == AnalysisState::Analyzing)
-        understand = NodeState::Processing;
+        listen = NodeState::Processing;
     else if (ready)
-        understand = NodeState::Ready;
+        listen = NodeState::Ready;
     else if (stage == AnalysisState::Failed)
-        understand = NodeState::Failed;
+        listen = NodeState::Failed;
 
     NodeState improve = ready ? NodeState::Ready : NodeState::Waiting;
-    NodeState create = state_.harmony() || state_.eqProfile() ? NodeState::Ready
-                       : (ready ? NodeState::Waiting : NodeState::Idle);
-    NodeState exportNode = (dna != nullptr && !dna->objects.empty()) || state_.harmony()
+    NodeState create = state_.harmony() || state_.bassClip() || state_.eqProfile()
         ? NodeState::Ready
-        : NodeState::Idle;
+        : (ready ? NodeState::Waiting : NodeState::Idle);
 
     const auto a = nodeBounds(0);
     const auto b = nodeBounds(1);
     const auto c = nodeBounds(2);
-    const auto d = nodeBounds(3);
-    const auto e = nodeBounds(4);
 
-    drawModule(g, a, "TRACK",
-               state_.hasTrack() ? juce::String(state_.loadedFilename()) : "NO TRACK",
-               track, selected == CanvasNode::Track);
-    drawModule(g, b, "UNDERSTAND",
-               ready ? state_.styleLabel() : "listen",
-               understand, selected == CanvasNode::Understand);
-    drawModule(g, c, "IMPROVE",
-               ready ? juce::String((int) state_.mixRows().size()) + " checks" : "mix",
+    drawModule(g, a, "LISTEN",
+               ready ? state_.styleLabel() : (state_.hasTrack() ? juce::String(state_.loadedFilename()) : "What do you have?"),
+               listen, selected == CanvasNode::Track || selected == CanvasNode::Understand);
+    drawModule(g, b, "IMPROVE",
+               ready ? state_.issueCountLabel() : "What is wrong?",
                improve, selected == CanvasNode::Improve);
-    drawModule(g, d, "CREATE",
-               state_.harmony() ? "MIDI ready" : "objects",
-               create, selected == CanvasNode::Create);
-    drawModule(g, e, "EXPORT",
-               ready ? state_.objectCountLabel() : "MIDI / stems",
-               exportNode, selected == CanvasNode::Export);
+    drawModule(g, c, "CREATE",
+               state_.harmony() || state_.bassClip() ? "Object ready" : "What should we make?",
+               create, selected == CanvasNode::Create || selected == CanvasNode::Export);
 
     drawLink(g, a, b);
     drawLink(g, b, c);
-    drawLink(g, c, d);
-    drawLink(g, d, e);
 }
 
 } // namespace sonora

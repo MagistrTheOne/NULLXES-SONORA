@@ -19,8 +19,8 @@ private:
     AppState& state_;
     ActionButton chords_;
     ActionButton bassline_;
-    ActionButton pad_;
     ActionButton arrangement_;
+    ActionButton midi_;
 };
 
 } // namespace sonora

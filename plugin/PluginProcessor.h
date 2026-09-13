@@ -2,8 +2,6 @@
 
 #include <juce_audio_processors/juce_audio_processors.h>
 
-#include <atomic>
-
 namespace sonora
 {
 
@@ -38,16 +36,9 @@ public:
     void getStateInformation(juce::MemoryBlock&) override {}
     void setStateInformation(const void*, int) override {}
 
-    void startListen();
-    bool takeCapture(juce::AudioBuffer<float>& dest, double& sampleRate);
-    bool isListening() const { return listening_.load(); }
+    bool isListening() const;
 
 private:
-    juce::AudioBuffer<float> capture_;
-    std::atomic<bool> listening_ { false };
-    std::atomic<int> writeFrames_ { 0 };
-    double hostSr_ = 44100.0;
-
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PluginProcessor)
 };
 

@@ -7,6 +7,7 @@
 #include <juce_audio_basics/juce_audio_basics.h>
 #include <juce_core/juce_core.h>
 
+#include <optional>
 #include <vector>
 
 namespace sonora::engine
@@ -31,6 +32,13 @@ models::MidiClip makeBass(const models::AudioAnalysis& analysis);
 models::MidiClip makePad(const models::AudioAnalysis& analysis);
 models::DropPlan makeDrop(const models::AudioAnalysis& analysis);
 models::AssistAdvice makeAssist(const models::AudioAnalysis& analysis, const std::vector<models::Issue>& issues);
+bool writeMidiFile(
+    const juce::File& file,
+    const std::optional<models::Harmony>& harmony,
+    const std::optional<models::MidiClip>& bass,
+    const std::optional<models::MidiClip>& pad,
+    juce::String& error);
+
 models::ReferenceReport compare(
     const models::AudioAnalysis& target,
     const models::AudioAnalysis& reference,

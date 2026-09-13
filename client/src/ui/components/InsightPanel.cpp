@@ -43,7 +43,7 @@ void InsightPanel::paint(juce::Graphics& g)
     syncOptions();
     theme::fillCard(g, getLocalBounds());
     auto bounds = getLocalBounds().reduced(16, 14);
-    const auto title = state_.assistArmed() ? "SONORA ASSIST" : "SONORA INSIGHT";
+    const auto title = "SONORA LAB";
     theme::drawSectionLabel(g, bounds.removeFromTop(16), title);
     bounds.removeFromTop(8);
 
@@ -63,7 +63,7 @@ void InsightPanel::paint(juce::Graphics& g)
     }
 
     const auto finding = state_.assistFinding();
-    Theme::drawMuted(g, bounds.removeFromTop(12), "I FOUND");
+    Theme::drawMuted(g, bounds.removeFromTop(12), "WHAT TO CHANGE");
     bounds.removeFromTop(4);
     g.setColour(colors::foreground());
     g.setFont(type::body(13.0f));

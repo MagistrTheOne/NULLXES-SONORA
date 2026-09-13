@@ -17,12 +17,9 @@ void styleTab(juce::TextButton& button, bool active)
 
 TabBar::TabBar(AppState& state) : state_(state)
 {
-    generate.setButtonText("CREATE");
-    bind(overview, WorkspaceTab::Overview);
-    bind(dna, WorkspaceTab::Dna);
-    bind(structure, WorkspaceTab::Structure);
-    bind(spectrum, WorkspaceTab::Spectrum);
-    bind(generate, WorkspaceTab::Generate);
+    bind(listen, WorkspaceTab::Listen);
+    bind(improve, WorkspaceTab::Improve);
+    bind(create, WorkspaceTab::Create);
 }
 
 void TabBar::bind(juce::TextButton& button, WorkspaceTab tab)
@@ -35,22 +32,15 @@ void TabBar::bind(juce::TextButton& button, WorkspaceTab tab)
 void TabBar::paint(juce::Graphics& g)
 {
     const auto tab = state_.tab();
-    styleTab(overview, tab == WorkspaceTab::Overview);
-    styleTab(dna, tab == WorkspaceTab::Dna);
-    styleTab(structure, tab == WorkspaceTab::Structure);
-    styleTab(spectrum, tab == WorkspaceTab::Spectrum);
-    styleTab(generate, tab == WorkspaceTab::Generate || tab == WorkspaceTab::Harmony);
+    styleTab(listen, tab == WorkspaceTab::Listen);
+    styleTab(improve, tab == WorkspaceTab::Improve);
+    styleTab(create, tab == WorkspaceTab::Create);
 
-    juce::TextButton* active = &overview;
-    switch (tab)
-    {
-        case WorkspaceTab::Dna: active = &dna; break;
-        case WorkspaceTab::Structure: active = &structure; break;
-        case WorkspaceTab::Spectrum: active = &spectrum; break;
-        case WorkspaceTab::Generate:
-        case WorkspaceTab::Harmony: active = &generate; break;
-        default: break;
-    }
+    juce::TextButton* active = &listen;
+    if (tab == WorkspaceTab::Improve)
+        active = &improve;
+    else if (tab == WorkspaceTab::Create)
+        active = &create;
 
     g.setColour(Theme::border());
     g.fillRect(0, getHeight() - 1, getWidth(), 1);
@@ -61,12 +51,10 @@ void TabBar::paint(juce::Graphics& g)
 void TabBar::resized()
 {
     auto row = getLocalBounds();
-    const int w = row.getWidth() / 5;
-    overview.setBounds(row.removeFromLeft(w));
-    dna.setBounds(row.removeFromLeft(w));
-    structure.setBounds(row.removeFromLeft(w));
-    spectrum.setBounds(row.removeFromLeft(w));
-    generate.setBounds(row);
+    const int w = row.getWidth() / 3;
+    listen.setBounds(row.removeFromLeft(w));
+    improve.setBounds(row.removeFromLeft(w));
+    create.setBounds(row);
 }
 
 } // namespace sonora

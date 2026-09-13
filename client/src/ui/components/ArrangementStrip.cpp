@@ -51,7 +51,7 @@ void ArrangementStrip::paint(juce::Graphics& g)
     for (const auto& section : dna->sections)
     {
         auto cellBounds = bounds.removeFromLeft(cell);
-        Theme::drawMuted(g, cellBounds.removeFromTop(12), juce::String(section.name).toUpperCase());
+        Theme::drawMuted(g, cellBounds.removeFromTop(12), copy::sectionLabel(section.name));
         Theme::drawMuted(g, cellBounds, copy::formatTime(section.start));
     }
 }

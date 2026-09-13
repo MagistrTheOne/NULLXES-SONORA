@@ -140,7 +140,36 @@ juce::String AppState::objectCountLabel() const
 
 juce::String AppState::styleLabel() const
 {
-    return copy::styleLine(dna(), profileLines());
+    if (!analysis_)
+        return "---";
+    return copy::styleFromIdentity(copy::sonicIdentity(*analysis_, issues_));
+}
+
+juce::String AppState::energyLabel() const
+{
+    if (!analysis_)
+        return "---";
+    return juce::String(juce::roundToInt(energyNow() * 100.0f)) + "%";
+}
+
+float AppState::energyNow() const
+{
+    const auto* model = dna();
+    if (model == nullptr)
+        return 0.0f;
+    const auto& curve = !model->energyCurve.empty() ? model->energyCurve : model->energyPeaks;
+    if (curve.empty())
+        return model->energyMean;
+    const float t = juce::jlimit(0.0f, 1.0f, playhead());
+    const int i = juce::jlimit(0, (int) curve.size() - 1, juce::roundToInt(t * (float) (curve.size() - 1)));
+    return juce::jlimit(0.0f, 1.0f, curve[(size_t) i]);
+}
+
+std::vector<copy::IdentityAxis> AppState::sonicIdentity() const
+{
+    if (!analysis_)
+        return {};
+    return copy::sonicIdentity(*analysis_, issues_);
 }
 
 std::vector<juce::String> AppState::profileLines() const
@@ -160,8 +189,9 @@ std::vector<juce::String> AppState::profileLines() const
     }
     if (lines.empty())
     {
-        lines.emplace_back("Deep House");
-        lines.emplace_back("Slap House");
+        for (const auto& axis : sonicIdentity())
+            if (axis.value >= 0.52f)
+                lines.push_back(axis.name);
     }
     std::vector<juce::String> unique;
     for (const auto& line : lines)
@@ -215,14 +245,7 @@ copy::Finding AppState::assistFinding() const
 
 std::vector<models::AssistOption> AppState::assistOptions() const
 {
-    if (assistAdvice_ && !assistAdvice_->options.empty())
-        return assistAdvice_->options;
-    return {
-        { "strengthen_drop", "Strengthen drop" },
-        { "fix_vocal_space", "Fix vocal space" },
-        { "create_bass", "Create bass" },
-        { "compare_reference", "Compare reference" },
-    };
+    return copy::labOptions();
 }
 
 bool AppState::canPlay() const
@@ -242,9 +265,16 @@ float AppState::playhead() const
 
 juce::String AppState::playheadLabel() const
 {
-    if (player_ == nullptr || !player_->isReady())
-        return durationLabel();
-    return copy::formatTime((float) player_->positionSeconds()) + " / " + durationLabel();
+    return copy::formatTime(playheadSeconds()) + " / " + durationLabel();
+}
+
+float AppState::playheadSeconds() const
+{
+    if (player_ != nullptr && player_->isReady())
+        return (float) player_->positionSeconds();
+    if (analysis_)
+        return playhead() * analysis_->durationSec;
+    return 0.0f;
 }
 
 void AppState::togglePlayback()
@@ -280,14 +310,13 @@ const models::TrackDna* AppState::dna() const
 void AppState::setTab(WorkspaceTab tab)
 {
     tab_ = tab;
+    referenceOpen_ = false;
+    labOpen_ = false;
     switch (tab)
     {
-        case WorkspaceTab::Track: selectedNode_ = CanvasNode::Track; break;
-        case WorkspaceTab::Mix: selectedNode_ = CanvasNode::Improve; break;
-        case WorkspaceTab::Arrangement: selectedNode_ = CanvasNode::Understand; break;
+        case WorkspaceTab::Listen: selectedNode_ = CanvasNode::Track; break;
+        case WorkspaceTab::Improve: selectedNode_ = CanvasNode::Improve; break;
         case WorkspaceTab::Create: selectedNode_ = CanvasNode::Create; break;
-        case WorkspaceTab::Reference: selectedNode_ = CanvasNode::Understand; break;
-        default: break;
     }
     notify();
 }
@@ -297,9 +326,9 @@ void AppState::selectCanvasNode(CanvasNode node)
     selectedNode_ = node;
     switch (node)
     {
-        case CanvasNode::Track: tab_ = WorkspaceTab::Track; break;
-        case CanvasNode::Understand: tab_ = WorkspaceTab::Track; armAssist(); return;
-        case CanvasNode::Improve: tab_ = WorkspaceTab::Mix; break;
+        case CanvasNode::Track: tab_ = WorkspaceTab::Listen; break;
+        case CanvasNode::Understand: tab_ = WorkspaceTab::Listen; openLab(); return;
+        case CanvasNode::Improve: tab_ = WorkspaceTab::Improve; break;
         case CanvasNode::Create: tab_ = WorkspaceTab::Create; break;
         case CanvasNode::Export: tab_ = WorkspaceTab::Create; break;
     }
@@ -308,7 +337,7 @@ void AppState::selectCanvasNode(CanvasNode node)
 
 void AppState::focusArrangement()
 {
-    setTab(WorkspaceTab::Arrangement);
+    requestArrangement();
 }
 
 void AppState::toggleUiMode()
@@ -319,18 +348,48 @@ void AppState::toggleUiMode()
 
 void AppState::armAssist()
 {
-    assistArmed_ = true;
-    tab_ = WorkspaceTab::Track;
-    selectedNode_ = CanvasNode::Understand;
-    notify();
+    openLab();
 }
 
 void AppState::disarmAssist()
 {
-    if (!assistArmed_)
-        return;
-    assistArmed_ = false;
+    closeLab();
+}
+
+void AppState::openLab()
+{
+    labOpen_ = true;
+    selectedNode_ = CanvasNode::Understand;
     notify();
+}
+
+void AppState::closeLab()
+{
+    if (!labOpen_)
+        return;
+    labOpen_ = false;
+    notify();
+}
+
+void AppState::openReference()
+{
+    referenceOpen_ = true;
+    labOpen_ = false;
+    tab_ = WorkspaceTab::Improve;
+    notify();
+}
+
+void AppState::closeReference()
+{
+    if (!referenceOpen_)
+        return;
+    referenceOpen_ = false;
+    notify();
+}
+
+void AppState::armCapture(void* token)
+{
+    captureToken_ = token;
 }
 
 bool AppState::handleKeyPress(const juce::KeyPress& key)
@@ -341,9 +400,10 @@ bool AppState::handleKeyPress(const juce::KeyPress& key)
         armAssist();
         return true;
     }
-    if (key == juce::KeyPress::escapeKey && assistArmed_)
+    if (key == juce::KeyPress::escapeKey && (labOpen_ || referenceOpen_))
     {
-        disarmAssist();
+        closeLab();
+        closeReference();
         return true;
     }
     if (key == juce::KeyPress::spaceKey && canPlay())
@@ -383,8 +443,9 @@ void AppState::clearTrack()
     fault_ = {};
     analysisState_ = AnalysisState::Empty;
     selectedNode_ = CanvasNode::Track;
-    tab_ = WorkspaceTab::Track;
-    assistArmed_ = false;
+    tab_ = WorkspaceTab::Listen;
+    labOpen_ = false;
+    referenceOpen_ = false;
     notify();
 }
 
@@ -453,7 +514,7 @@ void AppState::applyResult(engine::Result result, const juce::String& name)
     analysisState_ = AnalysisState::Complete;
     analyzeProgress_ = 1.0f;
     selectedNode_ = CanvasNode::Understand;
-    tab_ = WorkspaceTab::Track;
+    tab_ = WorkspaceTab::Listen;
     fault_ = {};
     notify();
 }
@@ -473,8 +534,9 @@ void AppState::analyzeFile(const juce::File& file)
     analyzeProgress_ = 0.08f;
     analysisState_ = AnalysisState::Loading;
     selectedNode_ = CanvasNode::Track;
-    tab_ = WorkspaceTab::Track;
-    assistArmed_ = false;
+    tab_ = WorkspaceTab::Listen;
+    labOpen_ = false;
+    referenceOpen_ = false;
     notify();
 
     runAsync([this, file] {
@@ -516,7 +578,8 @@ void AppState::analyzeBuffer(juce::AudioBuffer<float> buffer, double sampleRate,
     analyzeProgress_ = 0.2f;
     analysisState_ = AnalysisState::Analyzing;
     selectedNode_ = CanvasNode::Track;
-    tab_ = WorkspaceTab::Track;
+    tab_ = WorkspaceTab::Listen;
+    labOpen_ = false;
     notify();
 
     runAsync([this, buffer = std::move(buffer), sampleRate, name] {
@@ -530,6 +593,14 @@ void AppState::analyzeBuffer(juce::AudioBuffer<float> buffer, double sampleRate,
 void AppState::requestEngineeringReport()
 {
     requestAssist();
+}
+
+void AppState::requestArrangement()
+{
+    if (!analysis_)
+        return;
+    closeLab();
+    setTab(WorkspaceTab::Create);
 }
 
 void AppState::requestHarmony()
@@ -597,9 +668,17 @@ void AppState::applyAssistOption(const juce::String& id)
     else if (id == "fix_vocal_space")
         createEqProfile();
     else if (id == "compare_reference")
-        setTab(WorkspaceTab::Reference);
+        openReference();
     else if (id == "create_chords" || id == "harmony")
         requestHarmony();
+    else if (id == "build_arrangement" || id == "create_arrangement")
+        requestArrangement();
+    closeLab();
+}
+
+bool AppState::writeMidiFile(const juce::File& file, juce::String& error) const
+{
+    return engine::writeMidiFile(file, harmony_, bassClip_, padClip_, error);
 }
 
 void AppState::compareReference(const juce::File& file)
@@ -624,6 +703,8 @@ void AppState::compareReference(const juce::File& file)
             else
             {
                 reference_ = engine::compare(*analysis_, ref.analysis, juce::String(loadedFilename_), name);
+                referenceOpen_ = true;
+                tab_ = WorkspaceTab::Improve;
                 fault_ = {};
             }
             notify();
@@ -645,7 +726,7 @@ void AppState::createEqProfile()
                 profile.frequencyHz = object.frequency > 0.0f ? object.frequency : 120.0f;
                 profile.gainDb = object.gain != 0.0f ? object.gain : -3.0f;
                 eqProfile_ = profile;
-                setTab(WorkspaceTab::Mix);
+                setTab(WorkspaceTab::Improve);
                 return;
             }
         }

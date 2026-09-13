@@ -1,23 +1,10 @@
 #include "ui/components/IssueRow.h"
+
+#include "ui/copy/HumanCopy.h"
 #include "ui/theme/Theme.h"
 
 namespace sonora
 {
-
-static juce::String issueTitle(const juce::String& type)
-{
-    if (type == "muddy_low_end")
-        return "LOW END BUILDUP";
-    if (type == "frequency_conflict")
-        return "FREQUENCY CONFLICT";
-    if (type == "narrow_stereo")
-        return "NARROW STEREO";
-    if (type == "clipping")
-        return "CLIPPING";
-    if (type == "low_dynamic_range")
-        return "LOW DYNAMIC RANGE";
-    return type.toUpperCase();
-}
 
 IssueRow::IssueRow()
 {
@@ -27,7 +14,7 @@ IssueRow::IssueRow()
 void IssueRow::setIssue(const models::Issue& issue)
 {
     empty_ = false;
-    title_ = issueTitle(issue.type);
+    title_ = copy::issuePhrase(issue);
     detail_ = issue.detail;
     severity_ = issue.severity;
     repaint();

@@ -1,13 +1,16 @@
 #include "ui/components/WaveformStrip.h"
 
+#include "ui/copy/HumanCopy.h"
 #include "ui/theme/Theme.h"
+
+#include <cmath>
 
 namespace sonora
 {
 
 WaveformStrip::WaveformStrip(AppState& state) : state_(state)
 {
-    startTimerHz(30);
+    startTimerHz(24);
 }
 
 WaveformStrip::~WaveformStrip()
@@ -17,20 +20,23 @@ WaveformStrip::~WaveformStrip()
 
 juce::Rectangle<int> WaveformStrip::playBounds() const
 {
-    return getLocalBounds().reduced(16, 10).withHeight(18).withWidth(22);
+    return getLocalBounds().reduced(16, 12).removeFromTop(18).removeFromLeft(22);
 }
 
 juce::Rectangle<int> WaveformStrip::waveBounds() const
 {
-    auto bounds = getLocalBounds().reduced(16, 10);
-    bounds.removeFromTop(24);
+    auto bounds = getLocalBounds().reduced(16, 12);
+    bounds.removeFromTop(40);
+    bounds.removeFromBottom(36);
     return bounds;
 }
 
 void WaveformStrip::timerCallback()
 {
-    if (state_.isPlaying())
-        repaint();
+    phase_ += 0.09f * (0.35f + state_.energyNow());
+    if (phase_ > juce::MathConstants<float>::twoPi)
+        phase_ -= juce::MathConstants<float>::twoPi;
+    repaint();
 }
 
 void WaveformStrip::seekFrom(const juce::MouseEvent& event)
@@ -62,7 +68,7 @@ void WaveformStrip::mouseDrag(const juce::MouseEvent& event)
 void WaveformStrip::paint(juce::Graphics& g)
 {
     theme::fillCard(g, getLocalBounds());
-    auto bounds = getLocalBounds().reduced(16, 10);
+    auto bounds = getLocalBounds().reduced(16, 12);
     auto header = bounds.removeFromTop(18);
     auto play = header.removeFromLeft(22);
     g.setColour(state_.canPlay() ? colors::foreground() : colors::mutedForeground());
@@ -84,17 +90,45 @@ void WaveformStrip::paint(juce::Graphics& g)
         g.fillPath(triangle);
     }
     header.removeFromLeft(8);
-    g.setColour(colors::foreground());
-    g.setFont(type::body(13.0f));
-    g.drawText(
-        state_.hasTrack() ? juce::String(state_.loadedFilename()) : "NO TRACK",
-        header.removeFromLeft(juce::jmax(80, header.getWidth() - 72)),
-        juce::Justification::centredLeft,
-        true);
-    Theme::drawMuted(g, header, state_.playheadLabel());
-    bounds.removeFromTop(6);
+    g.setColour(colors::mutedForeground());
+    g.setFont(type::mono(11.0f));
+    const auto now = copy::formatTime(state_.playheadSeconds());
+    g.drawText(now, header.removeFromLeft(42), juce::Justification::centredLeft, true);
+    auto endTime = header.removeFromRight(42);
+    g.drawText(state_.durationLabel(), endTime, juce::Justification::centredRight, true);
+    header.removeFromLeft(8);
+    header.removeFromRight(8);
+    g.setColour(colors::border());
+    g.fillRect(header.getX(), header.getCentreY(), header.getWidth(), 1);
+    const float playX = (float) header.getX() + (float) header.getWidth() * state_.playhead();
+    g.setColour(colors::foreground().withAlpha(0.7f));
+    g.fillEllipse(playX - 2.5f, (float) header.getCentreY() - 2.5f, 5.0f, 5.0f);
 
+    bounds.removeFromTop(8);
+    auto labels = bounds.removeFromTop(14);
     const auto* dna = state_.dna();
+    const float duration = state_.analysis() ? state_.analysis()->durationSec : 0.0f;
+    if (dna != nullptr && duration > 0.0f)
+    {
+        for (const auto& section : dna->sections)
+        {
+            const float x0 = (float) labels.getX() + (section.start / duration) * (float) labels.getWidth();
+            const float x1 = (float) labels.getX() + (section.end / duration) * (float) labels.getWidth();
+            g.setColour(colors::mutedForeground());
+            g.setFont(type::label(10.0f));
+            g.drawText(copy::sectionLabel(section.name),
+                       juce::Rectangle<int>((int) x0, labels.getY(), juce::jmax(36, (int) (x1 - x0)), labels.getHeight()),
+                       juce::Justification::centredLeft,
+                       true);
+        }
+    }
+
+    auto pulse = bounds.removeFromBottom(22);
+    bounds.removeFromBottom(6);
+    auto blocks = bounds.removeFromBottom(10);
+    bounds.removeFromBottom(6);
+    const auto wave = bounds;
+
     const std::vector<float>* samples = nullptr;
     if (dna != nullptr)
     {
@@ -107,28 +141,55 @@ void WaveformStrip::paint(juce::Graphics& g)
     if (samples == nullptr)
     {
         g.setColour(colors::border());
-        g.fillRect(bounds);
-        return;
+        g.fillRect(wave);
+    }
+    else
+    {
+        const float mid = (float) wave.getCentreY();
+        const float amp = (float) wave.getHeight() * 0.46f;
+        const int n = (int) samples->size();
+        const float barW = juce::jmax(1.0f, (float) wave.getWidth() / (float) juce::jmax(1, n));
+        for (int i = 0; i < n; ++i)
+        {
+            const float v = juce::jlimit(0.03f, 1.0f, (*samples)[(size_t) i]);
+            const float h = v * amp;
+            const float x = (float) wave.getX() + (float) i * barW;
+            g.setColour(colors::foreground().withAlpha(0.55f));
+            g.fillRect(x, mid - h, juce::jmax(1.0f, barW - 0.4f), h * 2.0f);
+        }
     }
 
-    const float mid = (float) bounds.getCentreY();
-    const float amp = (float) bounds.getHeight() * 0.46f;
-    const int n = (int) samples->size();
-    const float barW = juce::jmax(1.0f, (float) bounds.getWidth() / (float) juce::jmax(1, n));
-    for (int i = 0; i < n; ++i)
+    if (dna != nullptr && duration > 0.0f)
     {
-        const float v = juce::jlimit(0.03f, 1.0f, (*samples)[(size_t) i]);
-        const float h = v * amp;
-        const float x = (float) bounds.getX() + (float) i * barW;
-        g.setColour(colors::foreground().withAlpha(0.55f));
-        g.fillRect(x, mid - h, juce::jmax(1.0f, barW - 0.4f), h * 2.0f);
+        for (const auto& section : dna->sections)
+        {
+            const float x0 = (float) blocks.getX() + (section.start / duration) * (float) blocks.getWidth();
+            const float x1 = (float) blocks.getX() + (section.end / duration) * (float) blocks.getWidth();
+            auto cell = juce::Rectangle<float>(x0, (float) blocks.getY(), juce::jmax(8.0f, x1 - x0 - 4.0f), (float) blocks.getHeight());
+            Theme::drawBlocks(g, cell.toNearestInt(), section.energy, 8);
+        }
     }
+
+    const float energy = state_.energyNow();
+    const float glow = 0.35f + 0.65f * (0.5f + 0.5f * std::sin(phase_));
+    Theme::drawMuted(g, pulse.removeFromLeft(64), "ENERGY");
+    g.setColour(colors::foreground());
+    g.setFont(type::display(16.0f));
+    g.drawText(state_.energyLabel(), pulse.removeFromLeft(48), juce::Justification::centredLeft, true);
+    auto meter = pulse.removeFromLeft(juce::jmax(90, pulse.getWidth() - 28)).reduced(0, 6);
+    g.setColour(colors::border());
+    g.fillRect(meter);
+    g.setColour(colors::foreground().withAlpha(0.35f + 0.55f * glow * energy));
+    g.fillRect(meter.withWidth(juce::jmax(3, juce::roundToInt((float) meter.getWidth() * energy))));
+    auto dot = pulse.removeFromRight(14).withSizeKeepingCentre(8, 8);
+    g.setColour(colors::foreground().withAlpha(0.25f + 0.75f * glow * juce::jmax(0.2f, energy)));
+    g.fillEllipse(dot.toFloat());
 
     if (state_.canPlay() || state_.isPlaying())
     {
-        const float x = (float) bounds.getX() + (float) bounds.getWidth() * state_.playhead();
+        const float x = (float) wave.getX() + (float) wave.getWidth() * state_.playhead();
         g.setColour(colors::foreground());
-        g.fillRect(x, (float) bounds.getY(), 1.4f, (float) bounds.getHeight());
+        g.fillRect(x, (float) wave.getY(), 1.4f, (float) wave.getHeight());
     }
 }
 

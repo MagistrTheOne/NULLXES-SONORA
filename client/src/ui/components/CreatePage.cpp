@@ -38,18 +38,37 @@ void drawClip(juce::Graphics& g, juce::Rectangle<int>& bounds, const juce::Strin
 
 CreatePage::CreatePage(AppState& state) : state_(state)
 {
-    chords_.setLabel("CHORDS");
+    chords_.setLabel("CHORD");
     bass_.setLabel("BASS");
-    pad_.setLabel("PAD");
     arrangement_.setLabel("ARRANGEMENT");
-    vocal_.setLabel("VOCAL SPACE");
+    midi_.setLabel("MIDI");
     chords_.onClick = [this] { state_.requestHarmony(); };
     bass_.onClick = [this] { state_.requestBass(); };
-    pad_.onClick = [this] { state_.requestPad(); };
-    arrangement_.onClick = [this] { state_.focusArrangement(); };
-    vocal_.onClick = [this] { state_.createEqProfile(); };
-    for (auto* button : { &chords_, &bass_, &pad_, &arrangement_, &vocal_ })
+    arrangement_.onClick = [this] { state_.requestArrangement(); };
+    midi_.onClick = [this] { exportMidi(); };
+    for (auto* button : { &chords_, &bass_, &arrangement_, &midi_ })
         addAndMakeVisible(*button);
+}
+
+void CreatePage::exportMidi()
+{
+    chooser_ = std::make_unique<juce::FileChooser>(
+        "EXPORT MIDI",
+        juce::File(),
+        "*.mid");
+    constexpr auto flags = juce::FileBrowserComponent::saveMode
+                           | juce::FileBrowserComponent::canSelectFiles
+                           | juce::FileBrowserComponent::warnAboutOverwriting;
+    chooser_->launchAsync(flags, [this](const juce::FileChooser& chooser) {
+        auto file = chooser.getResult();
+        if (file.getFileName().isEmpty())
+            return;
+        if (!file.hasFileExtension(".mid"))
+            file = file.withFileExtension(".mid");
+        juce::String error;
+        if (!state_.writeMidiFile(file, error))
+            juce::ignoreUnused(error);
+    });
 }
 
 void CreatePage::paint(juce::Graphics& g)
@@ -57,28 +76,27 @@ void CreatePage::paint(juce::Graphics& g)
     const bool ready = state_.analysisState() == AnalysisState::Complete;
     chords_.setEnabled(ready);
     bass_.setEnabled(ready);
-    pad_.setEnabled(ready);
     arrangement_.setEnabled(ready && state_.dna() != nullptr);
-    vocal_.setEnabled(ready);
+    midi_.setEnabled(ready && (state_.harmony() || state_.bassClip() || state_.padClip()));
 
     theme::fillCard(g, getLocalBounds());
     auto bounds = getLocalBounds().reduced(24, 22);
-    Theme::drawMuted(g, bounds.removeFromTop(14), "CREATE WITH SONORA");
+    Theme::drawMuted(g, bounds.removeFromTop(14), "CREATE OBJECT");
     bounds.removeFromTop(10);
     g.setColour(colors::foreground());
     g.setFont(type::display(22.0f));
-    g.drawText("Your track", bounds.removeFromTop(28), juce::Justification::centredLeft, true);
+    g.drawText("Write the next part", bounds.removeFromTop(28), juce::Justification::centredLeft, true);
     bounds.removeFromTop(8);
     Theme::drawBody(g, bounds.removeFromTop(18),
                     ready ? state_.bpmLabel() + " BPM    " + state_.keyLabel() + "    " + state_.styleLabel()
                           : "Load a track first");
     bounds.removeFromTop(8);
-    Theme::drawMuted(g, bounds.removeFromTop(14), "SONORA does not chat. It writes objects.");
-    bounds.removeFromTop(156);
+    Theme::drawMuted(g, bounds.removeFromTop(14), "SONORA writes objects. It does not chat.");
+    bounds.removeFromTop(120);
 
     if (state_.harmony())
     {
-        Theme::drawMuted(g, bounds.removeFromTop(14), "HARMONY");
+        Theme::drawMuted(g, bounds.removeFromTop(14), "CHORD");
         bounds.removeFromTop(4);
         Theme::drawBody(g, bounds.removeFromTop(18),
                         juce::String(state_.harmony()->key) + "  /  " + juce::String(state_.harmony()->bars) + " bars");
@@ -93,19 +111,17 @@ void CreatePage::paint(juce::Graphics& g)
         bounds.removeFromTop(8);
     }
     if (state_.bassClip())
-        drawClip(g, bounds, "BASS CLIP", *state_.bassClip());
+        drawClip(g, bounds, "BASS", *state_.bassClip());
     if (state_.padClip())
-        drawClip(g, bounds, "PAD CLIP", *state_.padClip());
+        drawClip(g, bounds, "MIDI LAYER", *state_.padClip());
     if (state_.dropPlan())
     {
         const auto& plan = *state_.dropPlan();
-        Theme::drawMuted(g, bounds.removeFromTop(14), "DROP PLAN");
+        Theme::drawMuted(g, bounds.removeFromTop(14), "DROP");
         bounds.removeFromTop(4);
         Theme::drawBody(g, bounds.removeFromTop(18),
                         juce::String(plan.sectionName) + "  "
-                            + copy::formatTime(plan.start) + " – " + copy::formatTime(plan.end)
-                            + "   " + juce::String(juce::roundToInt(plan.frequency)) + "Hz  "
-                            + juce::String(plan.gain, 1) + "dB");
+                            + copy::formatTime(plan.start) + " – " + copy::formatTime(plan.end));
         for (const auto& action : plan.actions)
             Theme::drawBody(g, bounds.removeFromTop(18), juce::String(action));
     }
@@ -115,19 +131,16 @@ void CreatePage::resized()
 {
     auto bounds = getLocalBounds().reduced(24, 22);
     bounds.removeFromTop(108);
-    auto grid = bounds.removeFromTop(96);
+    auto grid = bounds.removeFromTop(44);
     const int gap = 8;
-    const int w = (grid.getWidth() - gap * 2) / 3;
+    const int w = (grid.getWidth() - gap * 3) / 4;
     chords_.setBounds(grid.removeFromLeft(w));
     grid.removeFromLeft(gap);
     bass_.setBounds(grid.removeFromLeft(w));
     grid.removeFromLeft(gap);
-    pad_.setBounds(grid);
-    bounds.removeFromTop(10);
-    auto row = bounds.removeFromTop(40);
-    arrangement_.setBounds(row.removeFromLeft((row.getWidth() - gap) / 2));
-    row.removeFromLeft(gap);
-    vocal_.setBounds(row);
+    arrangement_.setBounds(grid.removeFromLeft(w));
+    grid.removeFromLeft(gap);
+    midi_.setBounds(grid);
 }
 
 } // namespace sonora

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "models/AudioAnalysis.h"
+#include "models/Insight.h"
 #include "models/Issue.h"
 
 #include <juce_gui_basics/juce_gui_basics.h>
@@ -40,12 +41,22 @@ struct Delta
     float energy = 0.0f;
 };
 
+struct IdentityAxis
+{
+    juce::String name;
+    float value = 0.0f;
+};
+
 juce::Colour toneColour(Tone tone);
 juce::String riskStatus(const juce::String& risk);
 Tone riskTone(const juce::String& risk);
 juce::String issuePhrase(const models::Issue& issue);
 juce::String formatTime(float seconds);
 juce::String styleLine(const models::TrackDna* dna, const std::vector<juce::String>& profile);
+juce::String styleFromIdentity(const std::vector<IdentityAxis>& axes);
+juce::String sectionLabel(const std::string& name);
+std::vector<IdentityAxis> sonicIdentity(const models::AudioAnalysis& analysis, const std::vector<models::Issue>& issues);
+std::vector<models::AssistOption> labOptions();
 std::vector<juce::String> moodTags(const models::AudioAnalysis& analysis);
 int healthScore(const models::AudioAnalysis& analysis, const std::vector<models::Issue>& issues);
 juce::String healthVerdict(int score);

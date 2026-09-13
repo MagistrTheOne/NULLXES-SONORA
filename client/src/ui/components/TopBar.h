@@ -16,14 +16,13 @@ public:
 
 private:
     AppState& state_;
-    juce::TextButton track { "TRACK" };
-    juce::TextButton mix { "MIX" };
-    juce::TextButton arrangement { "ARRANGEMENT" };
+    juce::TextButton listen { "LISTEN" };
+    juce::TextButton improve { "IMPROVE" };
     juce::TextButton create { "CREATE" };
-    juce::TextButton reference { "REFERENCE" };
+    juce::TextButton lab { "LAB" };
     juce::TextButton advanced { "SIMPLE" };
 
-    void bind(juce::TextButton& button, WorkspaceTab tab, bool enabled);
+    void bind(juce::TextButton& button, WorkspaceTab tab);
     void style(juce::TextButton& button, bool active, bool enabled);
 };
 

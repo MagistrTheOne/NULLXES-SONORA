@@ -1,5 +1,6 @@
 #include "ui/copy/HumanCopy.h"
 
+#include "models/Insight.h"
 #include "ui/theme/Theme.h"
 
 namespace sonora::copy
@@ -64,13 +65,100 @@ juce::String formatTime(float seconds)
     return juce::String(minutes) + ":" + juce::String(rest).paddedLeft('0', 2);
 }
 
+juce::String sectionLabel(const std::string& name)
+{
+    const auto text = juce::String(name).toLowerCase();
+    if (text.contains("intro"))
+        return "INTRO";
+    if (text.contains("build"))
+        return "BUILD";
+    if (text.contains("drop"))
+        return "DROP";
+    if (text.contains("break"))
+        return "BREAK";
+    if (text.contains("outro"))
+        return "OUTRO";
+    if (text.contains("verse"))
+        return "VERSE";
+    if (text.contains("chorus"))
+        return "CHORUS";
+    if (text.contains("bridge"))
+        return "BRIDGE";
+    if (name.empty())
+        return "BODY";
+    return juce::String(name).toUpperCase();
+}
+
+std::vector<IdentityAxis> sonicIdentity(const models::AudioAnalysis& analysis, const std::vector<models::Issue>& issues)
+{
+    const float low = analysis.bands.sub + analysis.bands.low;
+    const float bright = analysis.bands.high + analysis.bands.air;
+    const float mid = analysis.bands.mid;
+    float dark = juce::jlimit(0.0f, 1.0f, (1.0f - bright * 1.85f) * 0.55f + low * 0.7f);
+    float bass = juce::jlimit(0.0f, 1.0f, low * 1.55f);
+    float wide = juce::jlimit(0.0f, 1.0f, analysis.stereoWidth * 1.45f);
+    float vocal = juce::jlimit(0.0f, 1.0f, mid * 1.65f);
+    if (analysis.hasDna)
+    {
+        bass = juce::jlimit(0.0f, 1.0f, 0.45f * bass + 0.55f * analysis.dna.lowEnd.value);
+        if (analysis.dna.brightness.value > 0.0f)
+            dark = juce::jlimit(0.0f, 1.0f, 0.5f * dark + 0.5f * (1.0f - analysis.dna.brightness.value));
+        wide = juce::jlimit(0.0f, 1.0f, 0.4f * wide + 0.6f * analysis.dna.stereo.value);
+    }
+    for (const auto& issue : issues)
+    {
+        if (issue.type == "frequency_conflict")
+            vocal = juce::jlimit(0.0f, 1.0f, vocal * (1.0f - issue.severity * 0.45f));
+        if (issue.type == "narrow_stereo")
+            wide = juce::jlimit(0.0f, 1.0f, wide * (1.0f - issue.severity * 0.5f));
+        if (issue.type == "muddy_low_end")
+            bass = juce::jlimit(0.0f, 1.0f, juce::jmax(bass, 0.55f + issue.severity * 0.4f));
+    }
+    return {
+        { "Dark", dark },
+        { "Heavy Bass", bass },
+        { "Wide Space", wide },
+        { "Vocal Focus", vocal },
+    };
+}
+
+std::vector<models::AssistOption> labOptions()
+{
+    return {
+        { "strengthen_drop", "Make drop stronger" },
+        { "create_bass", "Create bass variation" },
+        { "fix_vocal_space", "Open vocal space" },
+        { "build_arrangement", "Build arrangement" },
+    };
+}
+
 juce::String styleLine(const models::TrackDna* dna, const std::vector<juce::String>& profile)
 {
-    if (dna != nullptr && !dna->genreProfile.empty())
-        return juce::String(dna->genreProfile.front());
-    if (!profile.empty())
-        return profile.front();
+    juce::ignoreUnused(dna, profile);
     return "Unresolved";
+}
+
+juce::String styleFromIdentity(const std::vector<IdentityAxis>& axes)
+{
+    std::vector<juce::String> tags;
+    for (const auto& axis : axes)
+        if (axis.value >= 0.52f)
+            tags.push_back(axis.name);
+    if (tags.empty() && !axes.empty())
+    {
+        auto best = axes.front();
+        for (const auto& axis : axes)
+            if (axis.value > best.value)
+                best = axis;
+        tags.push_back(best.name);
+    }
+    if (tags.size() > 2)
+        tags.resize(2);
+    if (tags.empty())
+        return "Unresolved";
+    if (tags.size() == 1)
+        return tags.front();
+    return tags[0] + "  /  " + tags[1];
 }
 
 std::vector<juce::String> moodTags(const models::AudioAnalysis& analysis)

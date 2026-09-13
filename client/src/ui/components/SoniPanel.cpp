@@ -109,7 +109,7 @@ void SoniPanel::paint(juce::Graphics& g)
     auto dot = title.removeFromLeft(14).withSizeKeepingCentre(8, 8);
     g.setColour(colors::foreground().withAlpha(glow));
     g.fillEllipse(dot.toFloat());
-    Theme::drawMuted(g, header, "AI Assistant  ·  producer, not helpdesk");
+    Theme::drawMuted(g, header, "producer next to you  ·  not helpdesk");
 
     if (getHeight() > 420)
         bounds.removeFromRight(128);

@@ -353,4 +353,84 @@ juce::String signedPercent(float value)
     return juce::String(pct) + "%";
 }
 
+std::vector<juce::String> foundLines(const models::AudioAnalysis& analysis, const std::vector<models::Issue>& issues)
+{
+    std::vector<juce::String> lines;
+    const auto* muddy = findIssue(issues, "muddy_low_end");
+    const auto* vocal = findIssue(issues, "frequency_conflict");
+    const auto* clip = findIssue(issues, "clipping");
+    const auto* narrow = findIssue(issues, "narrow_stereo");
+    const auto* dyn = findIssue(issues, "low_dynamic_range");
+
+    if (muddy != nullptr)
+        lines.emplace_back("Bass dominates");
+    if (vocal != nullptr)
+        lines.emplace_back("Vocal needs space");
+
+    bool hasDrop = false;
+    float dropEnergy = 0.0f;
+    float bodyEnergy = analysis.hasDna ? analysis.dna.energyMean : 0.0f;
+    if (analysis.hasDna)
+    {
+        for (const auto& section : analysis.dna.sections)
+        {
+            if (section.name == "drop")
+            {
+                hasDrop = true;
+                dropEnergy = juce::jmax(dropEnergy, section.energy);
+            }
+        }
+    }
+    if (analysis.hasDna && (!hasDrop || dropEnergy < bodyEnergy + 0.08f) && lines.size() < 3)
+        lines.emplace_back("Drop lacks contrast");
+    if (narrow != nullptr)
+        lines.emplace_back("Stereo is closed");
+    if (clip != nullptr)
+        lines.emplace_back("Peaks are hot");
+    if (dyn != nullptr && lines.size() < 4)
+        lines.emplace_back("Dynamics are flat");
+    if (lines.empty())
+        lines.emplace_back("Foundation is solid");
+    if (lines.size() > 3)
+        lines.resize(3);
+    return lines;
+}
+
+juce::String structureLine(const models::TrackDna* dna)
+{
+    if (dna == nullptr || dna->sections.empty())
+        return "BODY";
+    juce::StringArray names;
+    for (const auto& section : dna->sections)
+    {
+        const auto label = sectionLabel(section.name);
+        if (!names.contains(label))
+            names.add(label);
+    }
+    if (names.isEmpty())
+        return "BODY";
+    return names.joinIntoString("   ");
+}
+
+juce::String mixLine(const models::AudioAnalysis& analysis, const std::vector<models::Issue>& issues)
+{
+    juce::StringArray bits;
+    if (findIssue(issues, "muddy_low_end") != nullptr)
+        bits.add("Low end heavy");
+    if (findIssue(issues, "frequency_conflict") != nullptr)
+        bits.add("Vocal space limited");
+    if (findIssue(issues, "clipping") != nullptr)
+        bits.add("Clipping risk");
+    if (findIssue(issues, "narrow_stereo") != nullptr)
+        bits.add("Narrow image");
+    if (bits.isEmpty())
+    {
+        if (analysis.bands.sub + analysis.bands.low >= 0.48f)
+            bits.add("Low end heavy");
+        else
+            bits.add(healthVerdict(healthScore(analysis, issues)));
+    }
+    return bits.joinIntoString("  ·  ");
+}
+
 } // namespace sonora::copy

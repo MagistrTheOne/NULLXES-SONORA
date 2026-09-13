@@ -1,4 +1,4 @@
-# SONORA Runtime (v1.0.2)
+# SONORA Runtime (v1.0.3)
 
 Intelligent producer layer. Native JUCE 8. No Python at runtime.
 
@@ -6,6 +6,8 @@ Intelligent producer layer. Native JUCE 8. No Python at runtime.
 **Premium:** SONI — voice + chat. She greets with character.
 
 In the DAW, SONORA listens to playback. Do not load a file. Press Play.
+After about 15 seconds: TRACK UNDERSTOOD. Session memory is stored in
+`Documents/NULLXES/SONORA/session.sonora` and in the DAW plugin state.
 
 Standalone can still open wav/mp3/flac.
 

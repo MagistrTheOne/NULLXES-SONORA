@@ -1,5 +1,6 @@
 #include "ui/components/SoniMeet.h"
 
+#include "app/Version.h"
 #include "ui/theme/Theme.h"
 
 namespace sonora
@@ -34,12 +35,12 @@ void SoniMeet::paint(juce::Graphics& g)
     auto left = bounds.removeFromLeft(juce::jmax(280, bounds.getWidth() * 42 / 100));
     bounds.removeFromLeft(24);
 
-    Theme::drawMuted(g, left.removeFromTop(14), "NULLXES SONORA V1.0.2");
+    Theme::drawMuted(g, left.removeFromTop(14), "NULLXES SONORA " + juce::String(kVersionLabel));
     left.removeFromTop(8);
     g.setColour(colors::foreground());
     g.setFont(type::display(42.0f));
     g.drawText("SONI", left.removeFromTop(48), juce::Justification::centredLeft, true);
-    Theme::drawMuted(g, left.removeFromTop(16), "AI ASSISTANT FOR MUSIC CREATORS");
+    Theme::drawMuted(g, left.removeFromTop(16), "PRODUCER NEXT TO YOU");
     left.removeFromTop(16);
     Theme::drawBody(g, left.removeFromTop(20), "Understands your sound.");
     Theme::drawBody(g, left.removeFromTop(20), "Keeps you honest.");

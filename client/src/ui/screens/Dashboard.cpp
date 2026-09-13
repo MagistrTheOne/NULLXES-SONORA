@@ -1,5 +1,6 @@
 #include "ui/screens/Dashboard.h"
 
+#include "app/Version.h"
 #include "ui/theme/Theme.h"
 
 namespace sonora
@@ -148,7 +149,7 @@ void Dashboard::refreshFromState()
     const bool complete = stage == AnalysisState::Complete;
     const auto tab = state_.tab();
     const bool listen = tab == WorkspaceTab::Listen && !state_.referenceOpen();
-    const bool understand = complete && tab == WorkspaceTab::Understand && !state_.referenceOpen();
+    const bool understand = tab == WorkspaceTab::Understand && !state_.referenceOpen();
     const bool create = complete && tab == WorkspaceTab::Create && !state_.referenceOpen();
     const bool soniTab = tab == WorkspaceTab::Soni && !state_.referenceOpen();
     const bool reference = complete && state_.referenceOpen();
@@ -214,7 +215,7 @@ void Dashboard::paint(juce::Graphics& g)
     {
         g.setColour(colors::muted());
         g.setFont(type::label(10.0f));
-        g.drawText("NULLXES SONORA V1.0.2", inner.removeFromTop(14), juce::Justification::centredLeft, true);
+        g.drawText("NULLXES SONORA " + juce::String(kVersionLabel), inner.removeFromTop(14), juce::Justification::centredLeft, true);
         inner.removeFromTop(8);
         g.setColour(colors::foreground());
         g.setFont(type::display(26.0f));
@@ -226,7 +227,7 @@ void Dashboard::paint(juce::Graphics& g)
         inner.removeFromTop(8);
         Theme::drawBody(g, inner.removeFromTop(18), "Track analysis / structure / spectrum / mix diagnostics");
         inner.removeFromTop(8);
-        Theme::drawBody(g, inner.removeFromTop(18), "Premium: SONI AI Assistant");
+        Theme::drawBody(g, inner.removeFromTop(18), "Premium: SONI — voice and character");
         inner.removeFromTop(16);
         g.setColour(colors::mutedForeground());
         g.setFont(type::body(13.0f));
@@ -357,7 +358,7 @@ void Dashboard::resized()
         return;
     }
 
-    if (!complete)
+    if (!complete && tab != WorkspaceTab::Understand)
     {
         hideWorkspace();
         if (state_.dawHost())
@@ -441,7 +442,7 @@ void Dashboard::resized()
     if (state_.dawHost())
     {
         canvas_.setBounds({});
-        live_.setBounds(body.removeFromTop(juce::jmax(260, body.getHeight() / 2)));
+        live_.setBounds(body.removeFromTop(juce::jmax(320, body.getHeight() * 62 / 100)));
         body.removeFromTop(10);
         arrangement_.setBounds(body);
         waveform_.setBounds({});

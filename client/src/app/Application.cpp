@@ -1,4 +1,5 @@
 #include "app/MainWindow.h"
+#include "app/Version.h"
 
 #include <juce_gui_basics/juce_gui_basics.h>
 
@@ -8,7 +9,7 @@ class SonoraApplication : public juce::JUCEApplication
 {
 public:
     const juce::String getApplicationName() override { return "SONORA"; }
-    const juce::String getApplicationVersion() override { return "1.0.2"; }
+    const juce::String getApplicationVersion() override { return sonora::kVersion; }
     bool moreThanOneInstanceAllowed() override { return true; }
 
     void initialise(const juce::String&) override

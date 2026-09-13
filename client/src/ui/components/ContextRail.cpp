@@ -43,7 +43,13 @@ void ContextRail::paint(juce::Graphics& g)
     drawBlock("TRACK", { track });
     drawBlock("DURATION", { state_.durationLabel() });
     drawBlock("FORMAT", { state_.channelLabel(), state_.sampleRateLabel(), state_.bitDepthLabel() });
-    drawBlock("ENGINE", { state_.dawHost() ? (state_.hostPlaying() ? "LIVE PLAY" : "LIVE IDLE") : engine });
+    drawBlock("ENGINE", {
+        state_.dawHost()
+            ? (state_.trackUnderstood() ? "UNDERSTOOD"
+               : state_.hostPlaying() ? "LIVE PLAY"
+                                      : "LIVE IDLE")
+            : engine
+    });
     if (state_.dawHost())
         drawBlock("NOW", { state_.barLabel(), state_.nowSection(), state_.bpmLabel() + " BPM" });
 

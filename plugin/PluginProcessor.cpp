@@ -41,6 +41,21 @@ void PluginProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
     EngineHost::get().process(this, buffer, getPlayHead());
 }
 
+void PluginProcessor::getStateInformation(juce::MemoryBlock& destData)
+{
+    const auto json = EngineHost::get().session().toSessionJson();
+    destData.setSize(0);
+    destData.append(json.toRawUTF8(), json.getNumBytesAsUTF8());
+}
+
+void PluginProcessor::setStateInformation(const void* data, int sizeInBytes)
+{
+    if (data == nullptr || sizeInBytes <= 0)
+        return;
+    EngineHost::get().session().applySessionJson(
+        juce::String::fromUTF8(static_cast<const char*>(data), sizeInBytes));
+}
+
 bool PluginProcessor::isListening() const
 {
     return EngineHost::get().isListening(this);

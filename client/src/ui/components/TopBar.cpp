@@ -1,5 +1,6 @@
 #include "ui/components/TopBar.h"
 
+#include "app/Version.h"
 #include "ui/theme/Theme.h"
 
 namespace sonora
@@ -54,7 +55,7 @@ void TopBar::paint(juce::Graphics& g)
     auto brand = bounds.removeFromLeft(280);
     g.setColour(colors::muted());
     g.setFont(type::label(10.0f));
-    g.drawText("NULLXES SONORA V1.0.2", brand.removeFromTop(16), juce::Justification::centredLeft, true);
+    g.drawText("NULLXES SONORA " + juce::String(kVersionLabel), brand.removeFromTop(16), juce::Justification::centredLeft, true);
     g.setColour(colors::foreground());
     g.setFont(type::display(22.0f));
     g.drawText("SONORA", brand.removeFromTop(26), juce::Justification::centredLeft, true);

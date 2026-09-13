@@ -2,6 +2,7 @@
 
 #include "audio/AudioPlayer.h"
 #include "engine/Engine.h"
+#include "session/SessionStore.h"
 #include "soni/SoniBrain.h"
 
 #include <cmath>
@@ -37,10 +38,14 @@ AppState::AppState()
     : player_(std::make_unique<AudioPlayer>())
 {
     pingHealth();
+#ifndef SONORA_IS_PLUGIN
+    restoreSession();
+#endif
 }
 
 AppState::~AppState()
 {
+    persistSession();
     alive_ = false;
     const auto deadline = juce::Time::getMillisecondCounter() + 8000;
     while (inflight_ > 0 && juce::Time::getMillisecondCounter() < deadline)
@@ -446,6 +451,8 @@ void AppState::clearTrack()
         player_->unload();
     listening_ = false;
     hasTrack_ = false;
+    listenFill_ = 0.0f;
+    heardSec_ = 0.0;
     loadedFilename_.clear();
     analysis_.reset();
     issues_.clear();
@@ -532,6 +539,7 @@ void AppState::applyResult(engine::Result result, const juce::String& name)
     tab_ = WorkspaceTab::Listen;
     fault_ = {};
     pushSoni(dawHost_ ? soni::afterLive(soniContext()) : soni::afterListen(soniContext()));
+    persistSession();
     notify();
 }
 
@@ -626,6 +634,7 @@ void AppState::requestHarmony()
     setTab(WorkspaceTab::Create);
     harmony_ = engine::makeHarmony(*analysis_);
     fault_ = {};
+    persistSession();
     notify();
 }
 
@@ -636,6 +645,7 @@ void AppState::requestBass()
     setTab(WorkspaceTab::Create);
     bassClip_ = engine::makeBass(*analysis_);
     fault_ = {};
+    persistSession();
     notify();
 }
 
@@ -646,6 +656,7 @@ void AppState::requestPad()
     setTab(WorkspaceTab::Create);
     padClip_ = engine::makePad(*analysis_);
     fault_ = {};
+    persistSession();
     notify();
 }
 
@@ -661,6 +672,7 @@ void AppState::requestDrop()
     profile.gainDb = dropPlan_->gain;
     eqProfile_ = profile;
     fault_ = {};
+    persistSession();
     notify();
 }
 
@@ -764,6 +776,7 @@ void AppState::createEqProfile()
         profile.frequencyHz = 120.0f;
     }
     eqProfile_ = profile;
+    persistSession();
     notify();
 }
 
@@ -775,26 +788,37 @@ void AppState::setDawHost(bool enabled)
 void AppState::updateTransport(bool playing, double bpm, double ppq, double seconds)
 {
     const bool started = playing && !hostPlaying_;
+    const bool stopped = !playing && hostPlaying_;
+    if (playing && hostPlaying_)
+    {
+        const double dt = seconds - hostSeconds_;
+        heardSec_ += (dt > 0.0 && dt < 1.0) ? dt : 0.2;
+    }
     hostPlaying_ = playing;
     hostBpm_ = bpm;
     hostPpq_ = ppq;
     hostSeconds_ = seconds;
-    hostBar_ = ppq > 0.0 ? (int) std::floor(ppq / 4.0) + 1 : 0;
+    const int nextBar = ppq > 0.0 ? (int) std::floor(ppq / 4.0) + 1 : 0;
+    const bool barChanged = nextBar != hostBar_;
+    hostBar_ = nextBar;
     if (dawHost_ && started)
     {
         listening_ = true;
         hasTrack_ = true;
-        loadedFilename_ = "FL session";
+        if (loadedFilename_.empty())
+            loadedFilename_ = "FL session";
         if (analysisState_ == AnalysisState::Empty)
         {
             analysisState_ = AnalysisState::Analyzing;
             analyzeProgress_ = 0.12f;
         }
         soniMeetOpen_ = false;
+        metPersisted_ = true;
     }
     if (dawHost_ && !playing)
         listening_ = false;
-    notify();
+    if (started || stopped || barChanged)
+        notify();
 }
 
 void AppState::updateLiveMeters(float energy, float peak, float stereo)
@@ -802,6 +826,13 @@ void AppState::updateLiveMeters(float energy, float peak, float stereo)
     liveEnergy_ = energy;
     livePeak_ = peak;
     liveStereo_ = stereo;
+}
+
+void AppState::updateListenFill(float ratio)
+{
+    listenFill_ = juce::jlimit(0.0f, 1.0f, ratio);
+    if (analysisState_ != AnalysisState::Complete)
+        analyzeProgress_ = juce::jmax(analyzeProgress_, 0.12f + listenFill_ * 0.75f);
 }
 
 void AppState::analyzeLive(juce::AudioBuffer<float> buffer, double sampleRate, const juce::String& name)
@@ -833,6 +864,7 @@ void AppState::analyzeLive(juce::AudioBuffer<float> buffer, double sampleRate, c
                 lastLiveSoniMs_ = now;
                 pushSoni(soni::afterLive(soniContext()));
             }
+            persistSession();
             notify();
         });
     });
@@ -864,6 +896,8 @@ void AppState::dismissSoniMeet()
     if (!soniMeetOpen_)
         return;
     soniMeetOpen_ = false;
+    metPersisted_ = true;
+    persistSession();
     notify();
 }
 
@@ -946,6 +980,7 @@ void AppState::ensureSoniWelcome()
         return;
     soniWelcomed_ = true;
     pushSoni(soni::greet(soniContext()));
+    persistSession();
     notify();
 }
 
@@ -957,7 +992,194 @@ void AppState::sendSoniChat(const juce::String& text)
     soniOpen_ = true;
     soniMessages_.push_back({ false, line });
     pushSoni(soni::reply(soniContext(), line));
+    persistSession();
     notify();
+}
+
+bool AppState::trackUnderstood() const
+{
+    return analysisState_ == AnalysisState::Complete && analysis_.has_value();
+}
+
+ListenPhase AppState::listenPhase() const
+{
+    if (trackUnderstood())
+        return ListenPhase::Understood;
+    if (!hostPlaying_ && analysisState_ != AnalysisState::Analyzing && analysisState_ != AnalysisState::Loading)
+        return ListenPhase::Waiting;
+    if (listenFill_ < 0.42f && heardSec_ < 6.0)
+        return ListenPhase::Listening;
+    return ListenPhase::Mapping;
+}
+
+float AppState::listenProgress() const
+{
+    if (trackUnderstood())
+        return 1.0f;
+    return juce::jlimit(0.0f, 0.96f, juce::jmax(listenFill_, (float) (heardSec_ / 15.0)));
+}
+
+juce::String AppState::listenHeadline() const
+{
+    switch (listenPhase())
+    {
+        case ListenPhase::Understood:
+            return "TRACK UNDERSTOOD";
+        case ListenPhase::Mapping:
+            return "SONORA LISTENING";
+        case ListenPhase::Listening:
+            return hostPlaying_ ? "SONORA LISTENING" : "LISTENING...";
+        case ListenPhase::Waiting:
+        default:
+            return "LISTENING...";
+    }
+}
+
+juce::String AppState::listenHint() const
+{
+    switch (listenPhase())
+    {
+        case ListenPhase::Understood:
+            return nowSection() + "    " + barLabel() + "    " + copy::formatTime((float) hostSeconds_);
+        case ListenPhase::Mapping:
+            return "Structure mapping...";
+        case ListenPhase::Listening:
+            return liveEnergy_ > 0.02f ? "Energy detected" : "Waiting for the bus";
+        case ListenPhase::Waiting:
+        default:
+            return dawHost_ ? "Waiting for playback    Press Play in FL Studio"
+                            : "Load a track. SONORA will listen.";
+    }
+}
+
+juce::String AppState::structureLine() const
+{
+    return copy::structureLine(dna());
+}
+
+juce::String AppState::mixLine() const
+{
+    if (!analysis_)
+        return hostPlaying_ ? "Mapping the session" : "On the bus";
+    return copy::mixLine(*analysis_, issues_);
+}
+
+std::vector<juce::String> AppState::sonoraFound() const
+{
+    if (!analysis_)
+        return {};
+    return copy::foundLines(*analysis_, issues_);
+}
+
+std::vector<LiveMixFlag> AppState::liveMixFlags() const
+{
+    std::vector<LiveMixFlag> flags;
+    const float bass = analysis_ ? (analysis_->bands.sub + analysis_->bands.low)
+                                 : juce::jlimit(0.0f, 1.0f, liveEnergy_ * 5.0f);
+    bool muddy = false;
+    bool clipIssue = false;
+    bool narrow = false;
+    for (const auto& issue : issues_)
+    {
+        muddy = muddy || issue.type == "muddy_low_end";
+        clipIssue = clipIssue || issue.type == "clipping";
+        narrow = narrow || issue.type == "narrow_stereo";
+    }
+    flags.push_back({ "Bass energy", (muddy || bass >= 0.48f) ? 1 : (bass < 0.22f ? -1 : 0) });
+    const float stereo = analysis_ ? analysis_->stereoWidth
+                                   : juce::jlimit(0.0f, 1.0f, liveStereo_ * 8.0f);
+    flags.push_back({ "Stereo width", (narrow || stereo < 0.18f) ? -1 : (stereo > 0.55f ? 1 : 0) });
+    flags.push_back({ "Clipping risk", (clipIssue || livePeak_ > 0.92f) ? 1 : -1 });
+    return flags;
+}
+
+juce::String AppState::toSessionJson() const
+{
+    session::Blob blob;
+    blob.name = juce::String(loadedFilename_);
+    switch (tab_)
+    {
+        case WorkspaceTab::Understand: blob.tab = "understand"; break;
+        case WorkspaceTab::Create: blob.tab = "create"; break;
+        case WorkspaceTab::Soni: blob.tab = "soni"; break;
+        case WorkspaceTab::Listen:
+        default: blob.tab = "listen"; break;
+    }
+    blob.met = metPersisted_ || !soniMeetOpen_;
+    blob.understood = trackUnderstood();
+    if (analysis_)
+    {
+        blob.hasAnalysis = true;
+        blob.analysis = *analysis_;
+    }
+    blob.issues = issues_;
+    blob.harmony = harmony_;
+    blob.bass = bassClip_;
+    blob.pad = padClip_;
+    blob.drop = dropPlan_;
+    blob.eq = eqProfile_;
+    blob.soni = soniMessages_;
+    return session::encode(blob);
+}
+
+bool AppState::applySessionJson(const juce::String& json)
+{
+    session::Blob blob;
+    if (json.trim().isEmpty() || !session::decode(json, blob))
+        return false;
+    restoring_ = true;
+    if (blob.name.isNotEmpty())
+        loadedFilename_ = blob.name.toStdString();
+    if (blob.tab == "understand")
+        tab_ = WorkspaceTab::Understand;
+    else if (blob.tab == "create")
+        tab_ = WorkspaceTab::Create;
+    else if (blob.tab == "soni")
+        tab_ = WorkspaceTab::Soni;
+    else
+        tab_ = WorkspaceTab::Listen;
+    metPersisted_ = blob.met;
+    soniMeetOpen_ = !blob.met;
+    if (blob.hasAnalysis)
+    {
+        analysis_ = blob.analysis;
+        issues_ = blob.issues;
+        insights_.clear();
+        for (const auto& issue : issues_)
+            insights_.push_back(insightFromIssue(issue));
+        if (analysis_)
+            assistAdvice_ = engine::makeAssist(*analysis_, issues_);
+        hasTrack_ = true;
+        analysisState_ = AnalysisState::Complete;
+        analyzeProgress_ = 1.0f;
+        listenFill_ = 1.0f;
+        selectedNode_ = CanvasNode::Understand;
+    }
+    harmony_ = blob.harmony;
+    bassClip_ = blob.bass;
+    padClip_ = blob.pad;
+    dropPlan_ = blob.drop;
+    eqProfile_ = blob.eq;
+    if (!blob.soni.empty())
+    {
+        soniMessages_ = blob.soni;
+        soniWelcomed_ = true;
+    }
+    restoring_ = false;
+    notify();
+    return true;
+}
+
+void AppState::persistSession() const
+{
+    if (restoring_ || !alive_)
+        return;
+    session::save(toSessionJson());
+}
+
+void AppState::restoreSession()
+{
+    applySessionJson(session::load());
 }
 
 } // namespace sonora

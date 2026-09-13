@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.22)
 
-project(sonora-runtime VERSION 1.0.2 LANGUAGES CXX)
+project(sonora-runtime VERSION 1.0.3 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -31,6 +31,9 @@ endif()
 set(SONORA_SHARED_SOURCES
     src/state/AppState.h
     src/state/AppState.cpp
+    src/session/SessionStore.h
+    src/session/SessionStore.cpp
+    src/app/Version.h
     src/backend/ClientLog.h
     src/backend/Fault.h
     src/engine/Engine.h
@@ -133,7 +136,7 @@ juce_add_gui_app(SONORA
     PRODUCT_NAME "SONORA"
     COMPANY_NAME "NULLXES"
     BUNDLE_ID com.nullxes.sonora
-    VERSION 1.0.2
+    VERSION 1.0.3
     NEEDS_WEB_BROWSER FALSE
 )
 
@@ -179,7 +182,7 @@ juce_add_plugin(SONORA_VST3
     PLUGIN_MANUFACTURER_CODE Nlxs
     PLUGIN_CODE Sonr
     FORMATS VST3
-    VERSION 1.0.2
+    VERSION 1.0.3
     IS_SYNTH FALSE
     NEEDS_MIDI_INPUT FALSE
     NEEDS_MIDI_OUTPUT FALSE
@@ -217,7 +220,7 @@ target_compile_definitions(SONORA_VST3 PRIVATE
     SONORA_IS_PLUGIN=1
     _CRT_SECURE_NO_WARNINGS
     JUCE_APPLICATION_NAME_STRING="SONORA"
-    JUCE_APPLICATION_VERSION_STRING="1.0.2"
+    JUCE_APPLICATION_VERSION_STRING="1.0.3"
 )
 
 target_link_libraries(SONORA_VST3 PRIVATE

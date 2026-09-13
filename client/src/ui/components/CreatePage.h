@@ -23,6 +23,7 @@ private:
     AppState& state_;
     ActionButton chords_;
     ActionButton bass_;
+    ActionButton drop_;
     ActionButton arrangement_;
     ActionButton midi_;
     std::unique_ptr<juce::FileChooser> chooser_;

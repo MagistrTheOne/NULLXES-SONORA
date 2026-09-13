@@ -188,7 +188,16 @@ juce::String afterLive(const Context& ctx)
     juce::String line = clock + ".\n";
     if (night(ctx) || late(ctx))
         line += "ты опять решил чинить бас вместо сна?\nладно.\n";
-    line += "я послушала последние секунды.\n";
+    line += "я послушала. трек понят.\n";
+    juce::String ident;
+    if (ctx.bpm.isNotEmpty() && ctx.bpm != "---")
+        ident = ctx.bpm + " bpm";
+    if (ctx.key.isNotEmpty() && ctx.key != "---")
+        ident += (ident.isEmpty() ? juce::String() : "  ") + ctx.key;
+    if (ctx.style.isNotEmpty() && ctx.style != "---")
+        ident += (ident.isEmpty() ? juce::String() : "  ") + ctx.style.toLowerCase();
+    if (ident.isNotEmpty())
+        line += ident + ".\n";
     if (ctx.muddy)
         line += "у тебя кик проигрывает басу.\nпоправить?";
     else if (ctx.vocalFight)

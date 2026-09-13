@@ -12,15 +12,23 @@ void ProblemsView::paint(juce::Graphics& g)
 {
     theme::fillCard(g, getLocalBounds());
     auto bounds = getLocalBounds().reduced(16, 12);
-    Theme::drawMuted(g, bounds.removeFromTop(14), "PROBLEMS");
+    Theme::drawMuted(g, bounds.removeFromTop(14), "SONORA FOUND");
     bounds.removeFromTop(8);
 
-    const auto& issues = state_.issues();
+    const auto found = state_.sonoraFound();
     if (state_.analysisState() != AnalysisState::Complete)
     {
-        Theme::drawMuted(g, bounds.removeFromTop(18), "Waiting for a track");
+        Theme::drawMuted(g, bounds.removeFromTop(18),
+                         state_.dawHost() ? "Listening to the session" : "Waiting for a track");
         return;
     }
+    for (const auto& line : found)
+        Theme::drawBody(g, bounds.removeFromTop(20), line);
+    bounds.removeFromTop(10);
+    Theme::drawMuted(g, bounds.removeFromTop(14), "PROBLEMS");
+    bounds.removeFromTop(6);
+
+    const auto& issues = state_.issues();
     if (issues.empty())
     {
         Theme::drawBody(g, bounds.removeFromTop(18), "No urgent collisions");

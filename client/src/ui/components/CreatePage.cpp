@@ -40,13 +40,15 @@ CreatePage::CreatePage(AppState& state) : state_(state)
 {
     chords_.setLabel("+ CHORD IDEA");
     bass_.setLabel("+ BASS VARIATION");
+    drop_.setLabel("+ DROP TRANSITION");
     arrangement_.setLabel("+ ARRANGEMENT");
     midi_.setLabel("+ MIDI");
     chords_.onClick = [this] { state_.requestHarmony(); };
     bass_.onClick = [this] { state_.requestBass(); };
+    drop_.onClick = [this] { state_.requestDrop(); };
     arrangement_.onClick = [this] { state_.requestArrangement(); };
     midi_.onClick = [this] { exportMidi(); };
-    for (auto* button : { &chords_, &bass_, &arrangement_, &midi_ })
+    for (auto* button : { &chords_, &bass_, &drop_, &arrangement_, &midi_ })
         addAndMakeVisible(*button);
 }
 
@@ -76,6 +78,7 @@ void CreatePage::paint(juce::Graphics& g)
     const bool ready = state_.analysisState() == AnalysisState::Complete;
     chords_.setEnabled(ready);
     bass_.setEnabled(ready);
+    drop_.setEnabled(ready);
     arrangement_.setEnabled(ready && state_.dna() != nullptr);
     midi_.setEnabled(ready && (state_.harmony() || state_.bassClip() || state_.padClip()));
 
@@ -89,7 +92,8 @@ void CreatePage::paint(juce::Graphics& g)
     bounds.removeFromTop(8);
     Theme::drawBody(g, bounds.removeFromTop(18),
                     ready ? state_.bpmLabel() + " BPM    " + state_.keyLabel() + "    " + state_.styleLabel()
-                          : "Load a track first");
+                          : (state_.dawHost() ? "Press Play first. Then write the next part."
+                                              : "Load a track first"));
     bounds.removeFromTop(8);
     Theme::drawMuted(g, bounds.removeFromTop(14), "SONORA writes objects. SONI talks.");
     bounds.removeFromTop(120);
@@ -133,10 +137,12 @@ void CreatePage::resized()
     bounds.removeFromTop(108);
     auto grid = bounds.removeFromTop(44);
     const int gap = 8;
-    const int w = (grid.getWidth() - gap * 3) / 4;
+    const int w = (grid.getWidth() - gap * 4) / 5;
     chords_.setBounds(grid.removeFromLeft(w));
     grid.removeFromLeft(gap);
     bass_.setBounds(grid.removeFromLeft(w));
+    grid.removeFromLeft(gap);
+    drop_.setBounds(grid.removeFromLeft(w));
     grid.removeFromLeft(gap);
     arrangement_.setBounds(grid.removeFromLeft(w));
     grid.removeFromLeft(gap);

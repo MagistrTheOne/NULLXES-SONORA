@@ -1,5 +1,6 @@
 #include "ui/components/StatusRail.h"
 
+#include "app/Version.h"
 #include "ui/theme/Theme.h"
 
 namespace sonora
@@ -35,12 +36,12 @@ void StatusRail::paint(juce::Graphics& g)
 
     juce::String result = "---";
     if (state_.analysisState() == AnalysisState::Complete)
-        result = state_.issueCountLabel() + "  /  " + state_.objectCountLabel();
+        result = "TRACK UNDERSTOOD  /  " + state_.issueCountLabel();
     else if (state_.analysisState() == AnalysisState::Failed)
         result = state_.fault().reason.isEmpty() ? "FAILED" : state_.fault().reason;
 
     paintCell(bounds.removeFromLeft(cell), "COMPUTE", compute);
-    paintCell(bounds.removeFromLeft(cell), "SONORA", "V1.0.2  FREE VST3");
+    paintCell(bounds.removeFromLeft(cell), "SONORA", juce::String(kVersionLabel) + "  FREE VST3");
     paintCell(bounds.removeFromLeft(cell), "SONI", state_.soniOpen() ? "PREMIUM LIVE" : "PREMIUM");
     paintCell(bounds, "RESULT", result);
 }

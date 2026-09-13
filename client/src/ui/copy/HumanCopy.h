@@ -64,5 +64,8 @@ std::vector<MixRow> mixRows(const models::AudioAnalysis& analysis, const std::ve
 Finding assistFinding(const models::AudioAnalysis& analysis, const std::vector<models::Issue>& issues);
 Delta mixDelta(const models::AudioAnalysis& previous, const models::AudioAnalysis& current);
 juce::String signedPercent(float value);
+std::vector<juce::String> foundLines(const models::AudioAnalysis& analysis, const std::vector<models::Issue>& issues);
+juce::String structureLine(const models::TrackDna* dna);
+juce::String mixLine(const models::AudioAnalysis& analysis, const std::vector<models::Issue>& issues);
 
 } // namespace sonora::copy

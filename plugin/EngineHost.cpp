@@ -9,6 +9,8 @@ namespace
 {
 constexpr int kRingSeconds = 24;
 constexpr int kAnalyzeSeconds = 16;
+constexpr int kFirstUnderstandSeconds = 12;
+constexpr int kRefreshSeconds = 2;
 constexpr int kAnalyzeEveryTicks = 15; // 15 * 200ms = 3s
 }
 
@@ -168,6 +170,9 @@ void EngineHost::pullLiveMeters()
         (double) hostPpqX100_.load(std::memory_order_relaxed) / 100.0,
         (double) hostSecX100_.load(std::memory_order_relaxed) / 100.0);
     session_.updateLiveMeters(energy, peak, stereo);
+    const int filled = filled_.load(std::memory_order_acquire);
+    const int need = juce::jmax(1, (int) std::lround(sr * (double) kFirstUnderstandSeconds));
+    session_.updateListenFill((float) filled / (float) need);
 }
 
 void EngineHost::kickAnalysis()
@@ -175,7 +180,8 @@ void EngineHost::kickAnalysis()
     if (session_.busy())
         return;
     const double sr = hostSr_.load(std::memory_order_acquire);
-    const int need = juce::jmax(1, (int) std::lround(sr * 2.0));
+    const int needSec = session_.trackUnderstood() ? kRefreshSeconds : kFirstUnderstandSeconds;
+    const int need = juce::jmax(1, (int) std::lround(sr * (double) needSec));
     if (filled_.load(std::memory_order_acquire) < need)
         return;
     juce::AudioBuffer<float> snap;

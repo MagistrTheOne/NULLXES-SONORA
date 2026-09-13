@@ -55,6 +55,20 @@ enum class UiMode
     Advanced
 };
 
+enum class ListenPhase
+{
+    Waiting,
+    Listening,
+    Mapping,
+    Understood
+};
+
+struct LiveMixFlag
+{
+    juce::String name;
+    int dir = 0;
+};
+
 class AppState : public juce::ChangeBroadcaster
 {
 public:
@@ -107,8 +121,22 @@ public:
     void setDawHost(bool enabled);
     void updateTransport(bool playing, double bpm, double ppq, double seconds);
     void updateLiveMeters(float energy, float peak, float stereo);
+    void updateListenFill(float ratio);
     void analyzeLive(juce::AudioBuffer<float> buffer, double sampleRate, const juce::String& name);
     void dismissSoniMeet();
+    bool trackUnderstood() const;
+    ListenPhase listenPhase() const;
+    float listenProgress() const;
+    juce::String listenHeadline() const;
+    juce::String listenHint() const;
+    juce::String structureLine() const;
+    juce::String mixLine() const;
+    std::vector<juce::String> sonoraFound() const;
+    std::vector<LiveMixFlag> liveMixFlags() const;
+    juce::String toSessionJson() const;
+    bool applySessionJson(const juce::String& json);
+    void persistSession() const;
+    void restoreSession();
     const models::TrackDna* dna() const;
 
     juce::String bpmLabel() const;
@@ -237,6 +265,10 @@ private:
     float liveEnergy_ = 0.0f;
     float livePeak_ = 0.0f;
     float liveStereo_ = 0.0f;
+    float listenFill_ = 0.0f;
+    double heardSec_ = 0.0;
+    bool restoring_ = false;
+    bool metPersisted_ = false;
     juce::int64 lastLiveSoniMs_ = 0;
     std::vector<soni::Message> soniMessages_;
     void* captureToken_ = nullptr;

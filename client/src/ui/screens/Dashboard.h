@@ -11,11 +11,13 @@
 #include "ui/components/HealthGauge.h"
 #include "ui/components/IdentityRow.h"
 #include "ui/components/LabOverlay.h"
+#include "ui/components/LiveListenView.h"
 #include "ui/components/MaskingHeatmap.h"
 #include "ui/components/MixHealthView.h"
 #include "ui/components/ProblemsView.h"
 #include "ui/components/ProjectCanvas.h"
 #include "ui/components/ReferencePage.h"
+#include "ui/components/SoniMeet.h"
 #include "ui/components/SoniPanel.h"
 #include "ui/components/SonicIdentity.h"
 #include "ui/components/SpectrumView.h"
@@ -58,6 +60,7 @@ private:
     ActionButton loadTrack_;
     ActionButton listen_;
     ActionButton reference_;
+    LiveListenView live_;
     WaveformStrip waveform_;
     IdentityRow identity_;
     SonicIdentity sonic_;
@@ -77,6 +80,7 @@ private:
     ProjectCanvas canvas_;
     StatusRail status_;
     SoniPanel soni_;
+    SoniMeet meet_;
     LabOverlay lab_;
     std::function<void*()> captureSite_;
     std::unique_ptr<juce::FileChooser> chooser_;

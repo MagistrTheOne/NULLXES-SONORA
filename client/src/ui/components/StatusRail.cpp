@@ -40,7 +40,7 @@ void StatusRail::paint(juce::Graphics& g)
         result = state_.fault().reason.isEmpty() ? "FAILED" : state_.fault().reason;
 
     paintCell(bounds.removeFromLeft(cell), "COMPUTE", compute);
-    paintCell(bounds.removeFromLeft(cell), "SONORA", "V1.0.1  FREE VST3");
+    paintCell(bounds.removeFromLeft(cell), "SONORA", "V1.0.2  FREE VST3");
     paintCell(bounds.removeFromLeft(cell), "SONI", state_.soniOpen() ? "PREMIUM LIVE" : "PREMIUM");
     paintCell(bounds, "RESULT", result);
 }

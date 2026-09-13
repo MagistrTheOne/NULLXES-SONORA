@@ -38,10 +38,10 @@ void drawClip(juce::Graphics& g, juce::Rectangle<int>& bounds, const juce::Strin
 
 CreatePage::CreatePage(AppState& state) : state_(state)
 {
-    chords_.setLabel("CHORD");
-    bass_.setLabel("BASS");
-    arrangement_.setLabel("ARRANGEMENT");
-    midi_.setLabel("MIDI");
+    chords_.setLabel("+ CHORD IDEA");
+    bass_.setLabel("+ BASS VARIATION");
+    arrangement_.setLabel("+ ARRANGEMENT");
+    midi_.setLabel("+ MIDI");
     chords_.onClick = [this] { state_.requestHarmony(); };
     bass_.onClick = [this] { state_.requestBass(); };
     arrangement_.onClick = [this] { state_.requestArrangement(); };

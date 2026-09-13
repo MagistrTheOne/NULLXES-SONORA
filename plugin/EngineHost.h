@@ -3,6 +3,8 @@
 #include "state/AppState.h"
 
 #include <juce_audio_basics/juce_audio_basics.h>
+#include <juce_audio_processors/juce_audio_processors.h>
+#include <juce_events/juce_events.h>
 
 #include <atomic>
 #include <mutex>
@@ -12,7 +14,7 @@ namespace sonora
 
 class PluginProcessor;
 
-class EngineHost
+class EngineHost : private juce::Timer
 {
 public:
     static EngineHost& get();
@@ -21,23 +23,36 @@ public:
 
     void installHooks();
     void prepare(double sampleRate);
-    void startListen(PluginProcessor* who);
-    void process(PluginProcessor* who, juce::AudioBuffer<float>& buffer);
+    void setEar(PluginProcessor* who);
+    void process(PluginProcessor* who, juce::AudioBuffer<float>& buffer, juce::AudioPlayHead* playHead);
     bool isListening(const PluginProcessor* who) const;
+    void startListen(PluginProcessor* who);
     void finishListen();
 
 private:
-    EngineHost() = default;
+    EngineHost();
+    void timerCallback() override;
+    void writeRing(const juce::AudioBuffer<float>& buffer);
+    void snapshotLast(juce::AudioBuffer<float>& dest, int frames) const;
+    void pullLiveMeters();
+    void kickAnalysis();
 
     AppState session_;
-    juce::AudioBuffer<float> capture_;
-    std::mutex prepareLock_;
-    std::atomic<PluginProcessor*> listener_ { nullptr };
-    std::atomic<bool> listening_ { false };
-    std::atomic<int> writeFrames_ { 0 };
+    juce::AudioBuffer<float> ring_;
+    std::atomic<int> writePos_ { 0 };
+    std::atomic<int> filled_ { 0 };
+    std::atomic<PluginProcessor*> ear_ { nullptr };
+    std::atomic<bool> hostPlaying_ { false };
+    std::atomic<int> hostBpmX100_ { 0 };
+    std::atomic<int> hostPpqX100_ { 0 };
+    std::atomic<int> hostSecX100_ { 0 };
     std::atomic<double> hostSr_ { 44100.0 };
     double allocatedSr_ = 0.0;
+    int ringFrames_ = 0;
     bool hooks_ = false;
+    bool timerOn_ = false;
+    int tick_ = 0;
+    int lastSpokenAnalysis_ = 0;
 };
 
 } // namespace sonora

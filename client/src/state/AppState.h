@@ -35,8 +35,9 @@ enum class AnalysisState
 enum class WorkspaceTab
 {
     Listen,
-    Improve,
-    Create
+    Understand,
+    Create,
+    Soni
 };
 
 enum class CanvasNode
@@ -89,8 +90,25 @@ public:
     bool assistArmed() const { return labOpen_; }
     bool labOpen() const { return labOpen_; }
     bool referenceOpen() const { return referenceOpen_; }
-    bool canCapture() const { return (bool) captureStart_; }
-    bool isListening() const { return listening_; }
+    bool canCapture() const { return dawHost_ || (bool) captureStart_; }
+    bool isListening() const { return listening_ || hostPlaying_; }
+    bool busy() const { return inflight_.load() > 0; }
+    bool dawHost() const { return dawHost_; }
+    bool hostPlaying() const { return hostPlaying_; }
+    double hostBpm() const { return hostBpm_; }
+    double hostSeconds() const { return hostSeconds_; }
+    int hostBar() const { return hostBar_; }
+    float liveEnergy() const { return liveEnergy_; }
+    float livePeak() const { return livePeak_; }
+    float liveStereo() const { return liveStereo_; }
+    juce::String nowSection() const;
+    juce::String barLabel() const;
+    bool soniMeetOpen() const { return soniMeetOpen_; }
+    void setDawHost(bool enabled);
+    void updateTransport(bool playing, double bpm, double ppq, double seconds);
+    void updateLiveMeters(float energy, float peak, float stereo);
+    void analyzeLive(juce::AudioBuffer<float> buffer, double sampleRate, const juce::String& name);
+    void dismissSoniMeet();
     const models::TrackDna* dna() const;
 
     juce::String bpmLabel() const;
@@ -209,6 +227,17 @@ private:
     bool soniOpen_ = true;
     bool soniMuted_ = false;
     bool soniWelcomed_ = false;
+    bool soniMeetOpen_ = true;
+    bool dawHost_ = false;
+    bool hostPlaying_ = false;
+    double hostBpm_ = 0.0;
+    double hostPpq_ = 0.0;
+    double hostSeconds_ = 0.0;
+    int hostBar_ = 0;
+    float liveEnergy_ = 0.0f;
+    float livePeak_ = 0.0f;
+    float liveStereo_ = 0.0f;
+    juce::int64 lastLiveSoniMs_ = 0;
     std::vector<soni::Message> soniMessages_;
     void* captureToken_ = nullptr;
 

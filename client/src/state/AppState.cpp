@@ -4,6 +4,7 @@
 #include "engine/Engine.h"
 #include "soni/SoniBrain.h"
 
+#include <cmath>
 #include <thread>
 
 namespace sonora
@@ -72,6 +73,8 @@ void AppState::applyOnMessage(std::function<void()> fn)
 
 juce::String AppState::bpmLabel() const
 {
+    if (dawHost_ && hostBpm_ > 1.0)
+        return juce::String(juce::roundToInt(hostBpm_));
     if (!analysis_)
         return "---";
     return juce::String(juce::roundToInt(analysis_->bpm));
@@ -155,6 +158,8 @@ juce::String AppState::energyLabel() const
 
 float AppState::energyNow() const
 {
+    if (dawHost_ && (hostPlaying_ || liveEnergy_ > 0.0f))
+        return juce::jlimit(0.0f, 1.0f, liveEnergy_ * 4.5f);
     const auto* model = dna();
     if (model == nullptr)
         return 0.0f;
@@ -316,8 +321,9 @@ void AppState::setTab(WorkspaceTab tab)
     switch (tab)
     {
         case WorkspaceTab::Listen: selectedNode_ = CanvasNode::Track; break;
-        case WorkspaceTab::Improve: selectedNode_ = CanvasNode::Improve; break;
+        case WorkspaceTab::Understand: selectedNode_ = CanvasNode::Understand; break;
         case WorkspaceTab::Create: selectedNode_ = CanvasNode::Create; break;
+        case WorkspaceTab::Soni: selectedNode_ = CanvasNode::Understand; soniOpen_ = true; break;
     }
     notify();
 }
@@ -328,8 +334,8 @@ void AppState::selectCanvasNode(CanvasNode node)
     switch (node)
     {
         case CanvasNode::Track: tab_ = WorkspaceTab::Listen; break;
-        case CanvasNode::Understand: tab_ = WorkspaceTab::Listen; openLab(); return;
-        case CanvasNode::Improve: tab_ = WorkspaceTab::Improve; break;
+        case CanvasNode::Understand: tab_ = WorkspaceTab::Understand; break;
+        case CanvasNode::Improve: tab_ = WorkspaceTab::Understand; break;
         case CanvasNode::Create: tab_ = WorkspaceTab::Create; break;
         case CanvasNode::Export: tab_ = WorkspaceTab::Create; break;
     }
@@ -376,7 +382,7 @@ void AppState::openReference()
 {
     referenceOpen_ = true;
     labOpen_ = false;
-    tab_ = WorkspaceTab::Improve;
+    tab_ = WorkspaceTab::Understand;
     notify();
 }
 
@@ -525,7 +531,7 @@ void AppState::applyResult(engine::Result result, const juce::String& name)
     selectedNode_ = CanvasNode::Understand;
     tab_ = WorkspaceTab::Listen;
     fault_ = {};
-    pushSoni(soni::afterListen(soniContext()));
+    pushSoni(dawHost_ ? soni::afterLive(soniContext()) : soni::afterListen(soniContext()));
     notify();
 }
 
@@ -714,7 +720,7 @@ void AppState::compareReference(const juce::File& file)
             {
                 reference_ = engine::compare(*analysis_, ref.analysis, juce::String(loadedFilename_), name);
                 referenceOpen_ = true;
-                tab_ = WorkspaceTab::Improve;
+                tab_ = WorkspaceTab::Understand;
                 fault_ = {};
             }
             notify();
@@ -736,7 +742,7 @@ void AppState::createEqProfile()
                 profile.frequencyHz = object.frequency > 0.0f ? object.frequency : 120.0f;
                 profile.gainDb = object.gain != 0.0f ? object.gain : -3.0f;
                 eqProfile_ = profile;
-                setTab(WorkspaceTab::Improve);
+                setTab(WorkspaceTab::Understand);
                 return;
             }
         }
@@ -761,6 +767,106 @@ void AppState::createEqProfile()
     notify();
 }
 
+void AppState::setDawHost(bool enabled)
+{
+    dawHost_ = enabled;
+}
+
+void AppState::updateTransport(bool playing, double bpm, double ppq, double seconds)
+{
+    const bool started = playing && !hostPlaying_;
+    hostPlaying_ = playing;
+    hostBpm_ = bpm;
+    hostPpq_ = ppq;
+    hostSeconds_ = seconds;
+    hostBar_ = ppq > 0.0 ? (int) std::floor(ppq / 4.0) + 1 : 0;
+    if (dawHost_ && started)
+    {
+        listening_ = true;
+        hasTrack_ = true;
+        loadedFilename_ = "FL session";
+        if (analysisState_ == AnalysisState::Empty)
+        {
+            analysisState_ = AnalysisState::Analyzing;
+            analyzeProgress_ = 0.12f;
+        }
+        soniMeetOpen_ = false;
+    }
+    if (dawHost_ && !playing)
+        listening_ = false;
+    notify();
+}
+
+void AppState::updateLiveMeters(float energy, float peak, float stereo)
+{
+    liveEnergy_ = energy;
+    livePeak_ = peak;
+    liveStereo_ = stereo;
+}
+
+void AppState::analyzeLive(juce::AudioBuffer<float> buffer, double sampleRate, const juce::String& name)
+{
+    if (buffer.getNumSamples() <= 0)
+        return;
+    runAsync([this, buffer = std::move(buffer), sampleRate, name] {
+        auto result = engine::analyze(buffer, sampleRate);
+        applyOnMessage([this, result = std::move(result), name]() mutable {
+            if (!result.ok())
+                return;
+            loadedFilename_ = name.toStdString();
+            hasTrack_ = true;
+            listening_ = hostPlaying_;
+            if (analysis_)
+                previousAnalysis_ = *analysis_;
+            analysis_ = std::move(result.analysis);
+            issues_ = std::move(result.issues);
+            insights_.clear();
+            for (const auto& issue : issues_)
+                insights_.push_back(insightFromIssue(issue));
+            assistAdvice_ = engine::makeAssist(*analysis_, issues_);
+            analysisState_ = AnalysisState::Complete;
+            analyzeProgress_ = 1.0f;
+            fault_ = {};
+            const auto now = juce::Time::currentTimeMillis();
+            if (lastLiveSoniMs_ == 0 || now - lastLiveSoniMs_ > 40000)
+            {
+                lastLiveSoniMs_ = now;
+                pushSoni(soni::afterLive(soniContext()));
+            }
+            notify();
+        });
+    });
+}
+
+juce::String AppState::nowSection() const
+{
+    const auto* model = dna();
+    if (model == nullptr || !analysis_)
+        return hostPlaying_ ? "BODY" : "---";
+    const float t = analysis_->durationSec > 0.0f
+        ? (float) std::fmod(hostSeconds_, (double) analysis_->durationSec)
+        : (float) hostSeconds_;
+    for (const auto& section : model->sections)
+        if (t >= section.start && t <= section.end)
+            return copy::sectionLabel(section.name);
+    return hostPlaying_ ? "LIVE" : "---";
+}
+
+juce::String AppState::barLabel() const
+{
+    if (hostBar_ <= 0)
+        return hostPlaying_ ? "BAR --" : "WAITING";
+    return "BAR " + juce::String(hostBar_);
+}
+
+void AppState::dismissSoniMeet()
+{
+    if (!soniMeetOpen_)
+        return;
+    soniMeetOpen_ = false;
+    notify();
+}
+
 soni::Context AppState::soniContext() const
 {
     soni::Context ctx;
@@ -778,6 +884,11 @@ soni::Context AppState::soniContext() const
     ctx.style = styleLabel();
     ctx.energy = energyLabel();
     ctx.health = healthScore();
+    ctx.live = dawHost_;
+    ctx.playing = hostPlaying_;
+    ctx.bar = hostBar_;
+    ctx.section = nowSection();
+    ctx.liveEnergy = liveEnergy_;
     for (const auto& issue : issues_)
     {
         ctx.muddy = ctx.muddy || issue.type == "muddy_low_end";

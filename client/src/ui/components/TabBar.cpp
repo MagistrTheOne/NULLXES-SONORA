@@ -18,8 +18,9 @@ void styleTab(juce::TextButton& button, bool active)
 TabBar::TabBar(AppState& state) : state_(state)
 {
     bind(listen, WorkspaceTab::Listen);
-    bind(improve, WorkspaceTab::Improve);
+    bind(understand, WorkspaceTab::Understand);
     bind(create, WorkspaceTab::Create);
+    bind(soni, WorkspaceTab::Soni);
 }
 
 void TabBar::bind(juce::TextButton& button, WorkspaceTab tab)
@@ -33,14 +34,17 @@ void TabBar::paint(juce::Graphics& g)
 {
     const auto tab = state_.tab();
     styleTab(listen, tab == WorkspaceTab::Listen);
-    styleTab(improve, tab == WorkspaceTab::Improve);
+    styleTab(understand, tab == WorkspaceTab::Understand);
     styleTab(create, tab == WorkspaceTab::Create);
+    styleTab(soni, tab == WorkspaceTab::Soni);
 
     juce::TextButton* active = &listen;
-    if (tab == WorkspaceTab::Improve)
-        active = &improve;
+    if (tab == WorkspaceTab::Understand)
+        active = &understand;
     else if (tab == WorkspaceTab::Create)
         active = &create;
+    else if (tab == WorkspaceTab::Soni)
+        active = &soni;
 
     g.setColour(Theme::border());
     g.fillRect(0, getHeight() - 1, getWidth(), 1);
@@ -51,10 +55,11 @@ void TabBar::paint(juce::Graphics& g)
 void TabBar::resized()
 {
     auto row = getLocalBounds();
-    const int w = row.getWidth() / 3;
+    const int w = row.getWidth() / 4;
     listen.setBounds(row.removeFromLeft(w));
-    improve.setBounds(row.removeFromLeft(w));
-    create.setBounds(row);
+    understand.setBounds(row.removeFromLeft(w));
+    create.setBounds(row.removeFromLeft(w));
+    soni.setBounds(row);
 }
 
 } // namespace sonora

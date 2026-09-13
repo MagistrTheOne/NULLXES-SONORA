@@ -38,7 +38,7 @@ void PluginProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
     for (int ch = getTotalNumInputChannels(); ch < channels; ++ch)
         buffer.clear(ch, 0, samples);
 
-    EngineHost::get().process(this, buffer);
+    EngineHost::get().process(this, buffer, getPlayHead());
 }
 
 bool PluginProcessor::isListening() const

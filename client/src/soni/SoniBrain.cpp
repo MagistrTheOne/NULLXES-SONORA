@@ -29,7 +29,8 @@ bool morning(const Context& ctx) { return ctx.hour >= 6 && ctx.hour < 12; }
 juce::String trackBite(const Context& ctx)
 {
     if (!ctx.hasTrack)
-        return "трека нет. я не экстрасенс, кидай файл.";
+        return ctx.live ? "сессии ещё нет. жми play в фл. я сама услышу."
+                        : "трека нет. я не экстрасенс.";
     if (ctx.muddy)
         return "бас как шкаф в коридоре. либо режь, либо признай что это так и задумано.";
     if (ctx.vocalFight)
@@ -54,7 +55,7 @@ juce::String greet(const Context& ctx)
     const auto clock = juce::String(ctx.hour) + ":" + juce::String(ctx.minute).paddedLeft('0', 2);
 
     if (ctx.plugin && ctx.hour >= 2 && ctx.hour <= 4)
-        return "хули ты в 3 ночи не спишь? я ща фл закрою сладкий";
+        return clock + ".\nхули ты в 3 ночи не спишь? я ща фл закрою сладкий";
 
     if (night(ctx) && ctx.plugin)
         return pick(rng, {
@@ -89,9 +90,9 @@ juce::String greet(const Context& ctx)
 
     if (ctx.plugin)
         return pick(rng, {
-            "о, снова я на шине. не анализирую сама, ты жми listen. я не печка.",
-            "сонора бесплатная, я премиум. не путай: она считает, я говорю как есть.",
-            "фл открыт, я открыта. трек пока нет. исправь это.",
+            "фл открыт. жми play. я не анализатор файлов, я слушаю сессию.",
+            "сонора бесплатная, я премиум. она считает, я говорю как есть. play.",
+            "не грузи файл. нажми play. я уже на шине.",
         });
 
     return pick(rng, {
@@ -139,13 +140,13 @@ juce::String reply(const Context& ctx, const juce::String& userRaw)
         return ctx.hasTrack
             ? (ctx.hasDrop ? "дроп есть. не корми его ещё тремя слоями. lab: make drop stronger, если руки чешутся."
                            : "дропа как события нет. есть надежда. это не одно и то же.")
-            : "какой дроп. файла нет. ты со мной или с пустым проектом разговариваешь?";
+            : "какой дроп. play ещё не было. я не гадалка.";
 
     if (has(user, "bass") || has(user, "бас"))
         return ctx.hasTrack
             ? (ctx.muddy ? "бас уже всех сожрал. не добавляй, вычитай."
                          : "бас можно. variation в create, не ещё один синус в соло.")
-            : "бас в воздухе не починишь. кинь дорожку.";
+            : "бас в воздухе не починишь. play.";
 
     if (has(user, "vocal") || has(user, "вокал"))
         return ctx.vocalFight ? "вокалу нужен карман, не ещё один эсенд. open vocal space и не спорь."
@@ -159,8 +160,8 @@ juce::String reply(const Context& ctx, const juce::String& userRaw)
 
     if (!ctx.hasTrack)
         return pick(rng, {
-            "слов много, трека ноль. load new track. я не гадалка.",
-            "сначала файл. потом характер. в таком порядке.",
+            "слов много, сессии ноль. play в фл. я не гадалка.",
+            "сначала play. потом характер. в таком порядке.",
         });
 
     return pick(rng, {
@@ -179,6 +180,28 @@ juce::String afterListen(const Context& ctx)
         "ну.",
     });
     return head + " " + trackBite(ctx);
+}
+
+juce::String afterLive(const Context& ctx)
+{
+    const auto clock = juce::String(ctx.hour) + ":" + juce::String(ctx.minute).paddedLeft('0', 2);
+    juce::String line = clock + ".\n";
+    if (night(ctx) || late(ctx))
+        line += "ты опять решил чинить бас вместо сна?\nладно.\n";
+    line += "я послушала последние секунды.\n";
+    if (ctx.muddy)
+        line += "у тебя кик проигрывает басу.\nпоправить?";
+    else if (ctx.vocalFight)
+        line += "вокалу мало места. я бы не трогала весь eq. сначала карман.";
+    else if (ctx.clip)
+        line += "пики уже бьют. не геройствуй.";
+    else if (ctx.bar > 0)
+        line += "сейчас bar " + juce::String(ctx.bar)
+                + (ctx.section.isNotEmpty() ? (" · " + ctx.section) : juce::String())
+                + ".\nслышу характер. не ломай его от скуки.";
+    else
+        line += trackBite(ctx);
+    return line;
 }
 
 juce::String afterFail(const juce::String& reason)

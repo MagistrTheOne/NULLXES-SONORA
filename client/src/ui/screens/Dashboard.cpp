@@ -9,6 +9,7 @@ Dashboard::Dashboard(AppState& state)
     : state_(state)
     , topBar_(state)
     , context_(state)
+    , live_(state)
     , waveform_(state)
     , identity_(state)
     , sonic_(state)
@@ -27,6 +28,7 @@ Dashboard::Dashboard(AppState& state)
     , canvas_(state)
     , status_(state)
     , soni_(state)
+    , meet_(state)
     , lab_(state)
 {
     setOpaque(true);
@@ -56,6 +58,7 @@ Dashboard::Dashboard(AppState& state)
     addAndMakeVisible(topBar_);
     addAndMakeVisible(context_);
     addAndMakeVisible(loadTrack_);
+    addAndMakeVisible(live_);
     addAndMakeVisible(waveform_);
     addAndMakeVisible(identity_);
     addAndMakeVisible(sonic_);
@@ -75,8 +78,10 @@ Dashboard::Dashboard(AppState& state)
     addAndMakeVisible(canvas_);
     addAndMakeVisible(status_);
     addAndMakeVisible(soni_);
+    addAndMakeVisible(meet_);
     addAndMakeVisible(lab_);
     lab_.setAlwaysOnTop(true);
+    meet_.setAlwaysOnTop(true);
 
     state_.addChangeListener(this);
     refreshFromState();
@@ -120,6 +125,7 @@ void Dashboard::chooseTrack()
 
 void Dashboard::hideWorkspace()
 {
+    live_.setBounds({});
     waveform_.setBounds({});
     identity_.setBounds({});
     sonic_.setBounds({});
@@ -141,37 +147,42 @@ void Dashboard::refreshFromState()
     const auto stage = state_.analysisState();
     const bool complete = stage == AnalysisState::Complete;
     const auto tab = state_.tab();
-    const bool listen = complete && tab == WorkspaceTab::Listen && !state_.referenceOpen();
-    const bool improve = complete && tab == WorkspaceTab::Improve && !state_.referenceOpen();
+    const bool listen = tab == WorkspaceTab::Listen && !state_.referenceOpen();
+    const bool understand = complete && tab == WorkspaceTab::Understand && !state_.referenceOpen();
     const bool create = complete && tab == WorkspaceTab::Create && !state_.referenceOpen();
+    const bool soniTab = tab == WorkspaceTab::Soni && !state_.referenceOpen();
     const bool reference = complete && state_.referenceOpen();
     const bool advanced = state_.uiMode() == UiMode::Advanced;
+    const bool daw = state_.dawHost();
 
-    loadTrack_.setEnabled(stage != AnalysisState::Loading && stage != AnalysisState::Analyzing && !state_.isListening());
-    listen_.setVisible(state_.canCapture());
+    loadTrack_.setVisible(!daw);
+    loadTrack_.setEnabled(!daw && stage != AnalysisState::Loading && stage != AnalysisState::Analyzing && !state_.isListening());
+    listen_.setVisible(!daw && state_.canCapture());
     listen_.setEnabled(stage != AnalysisState::Loading);
     listen_.setLabel(state_.isListening() ? "STOP" : "LISTEN");
-    reference_.setVisible(complete);
+    reference_.setVisible(complete && !daw);
     reference_.setEnabled(complete);
 
-    waveform_.setVisible(listen);
-    identity_.setVisible(listen);
-    sonic_.setVisible(listen);
-    arrangement_.setVisible(listen);
-    mixHealth_.setVisible(improve);
-    problems_.setVisible(improve);
-    actions_.setVisible(improve);
-    spectrum_.setVisible(listen && advanced);
-    translation_.setVisible(improve);
-    masking_.setVisible(improve);
-    health_.setVisible(true);
+    live_.setVisible(daw && listen && !state_.soniMeetOpen());
+    waveform_.setVisible(complete && listen && !daw);
+    identity_.setVisible(complete && listen && !daw);
+    sonic_.setVisible(complete && listen && !daw);
+    arrangement_.setVisible(complete && listen);
+    mixHealth_.setVisible(understand);
+    problems_.setVisible(understand);
+    actions_.setVisible(understand);
+    spectrum_.setVisible(complete && listen && advanced && !daw);
+    translation_.setVisible(understand);
+    masking_.setVisible(understand);
+    health_.setVisible(!soniTab);
     createPage_.setVisible(create);
     referencePage_.setVisible(reference);
     structure_.setVisible(create);
-    dnaView_.setVisible(improve && advanced);
-    canvas_.setVisible(listen || !complete);
-    createRail_.setVisible(!create && !state_.soniOpen());
-    soni_.setVisible(state_.soniOpen());
+    dnaView_.setVisible(understand && advanced);
+    canvas_.setVisible(!daw && (listen || !complete));
+    createRail_.setVisible(!create && !soniTab && !state_.soniOpen());
+    soni_.setVisible((state_.soniOpen() || soniTab) && !state_.soniMeetOpen());
+    meet_.setVisible(state_.soniMeetOpen());
     lab_.setVisible(state_.labOpen());
 
     if (complete && state_.analysis())
@@ -181,8 +192,6 @@ void Dashboard::refreshFromState()
 
     resized();
     repaint();
-    if (!soni_.isEditing())
-        grabKeyboardFocus();
 }
 
 void Dashboard::paint(juce::Graphics& g)
@@ -190,7 +199,7 @@ void Dashboard::paint(juce::Graphics& g)
     g.fillAll(colors::background());
 
     const auto stage = state_.analysisState();
-    if (stage == AnalysisState::Complete)
+    if (stage == AnalysisState::Complete || state_.dawHost() || state_.soniMeetOpen())
         return;
 
     auto stageBounds = juce::Rectangle<int>(
@@ -205,7 +214,7 @@ void Dashboard::paint(juce::Graphics& g)
     {
         g.setColour(colors::muted());
         g.setFont(type::label(10.0f));
-        g.drawText("NULLXES SONORA V1.0.1", inner.removeFromTop(14), juce::Justification::centredLeft, true);
+        g.drawText("NULLXES SONORA V1.0.2", inner.removeFromTop(14), juce::Justification::centredLeft, true);
         inner.removeFromTop(8);
         g.setColour(colors::foreground());
         g.setFont(type::display(26.0f));
@@ -275,9 +284,17 @@ void Dashboard::resized()
     auto right = body.removeFromRight(rightW);
     body.removeFromRight(14);
 
-    health_.setBounds(right.removeFromTop(state_.soniOpen() ? 108 : 132));
-    right.removeFromTop(10);
-    if (state_.soniOpen())
+    const auto tab = state_.tab();
+    const bool soniTab = tab == WorkspaceTab::Soni;
+    health_.setBounds(soniTab ? juce::Rectangle<int>{} : right.removeFromTop(state_.soniOpen() ? 108 : 132));
+    if (!soniTab)
+        right.removeFromTop(10);
+    if (soniTab)
+    {
+        soni_.setBounds({});
+        createRail_.setBounds({});
+    }
+    else if (state_.soniOpen())
     {
         soni_.setBounds(right);
         createRail_.setBounds({});
@@ -294,32 +311,62 @@ void Dashboard::resized()
             createRail_.setBounds({});
     }
 
-    const auto tab = state_.tab();
     const bool complete = state_.analysisState() == AnalysisState::Complete;
 
-    auto loadRow = body.removeFromTop(32);
-    loadTrack_.setBounds(loadRow.removeFromRight(148));
-    if (complete)
+    auto loadRow = body.removeFromTop(state_.dawHost() ? 0 : 32);
+    if (!state_.dawHost())
     {
-        loadRow.removeFromRight(8);
-        reference_.setBounds(loadRow.removeFromRight(110));
+        loadTrack_.setBounds(loadRow.removeFromRight(148));
+        if (complete)
+        {
+            loadRow.removeFromRight(8);
+            reference_.setBounds(loadRow.removeFromRight(110));
+        }
+        else
+            reference_.setBounds({});
+        if (state_.canCapture())
+        {
+            loadRow.removeFromRight(8);
+            listen_.setBounds(loadRow.removeFromRight(88));
+        }
+        else
+            listen_.setBounds({});
     }
     else
-        reference_.setBounds({});
-    if (state_.canCapture())
     {
-        loadRow.removeFromRight(8);
-        listen_.setBounds(loadRow.removeFromRight(88));
-    }
-    else
+        loadTrack_.setBounds({});
         listen_.setBounds({});
+        reference_.setBounds({});
+    }
 
     lab_.setBounds(getLocalBounds().withTrimmedBottom(statusH));
+    meet_.setBounds(state_.soniMeetOpen() ? getLocalBounds().withTrimmedBottom(statusH) : juce::Rectangle<int>{});
+
+    if (state_.soniMeetOpen())
+    {
+        hideWorkspace();
+        canvas_.setBounds({});
+        return;
+    }
+
+    if (tab == WorkspaceTab::Soni)
+    {
+        hideWorkspace();
+        canvas_.setBounds({});
+        soni_.setBounds(body);
+        return;
+    }
 
     if (!complete)
     {
         hideWorkspace();
-        canvas_.setBounds(body.removeFromBottom(canvasH));
+        if (state_.dawHost())
+        {
+            live_.setBounds(body);
+            canvas_.setBounds({});
+        }
+        else
+            canvas_.setBounds(body.removeFromBottom(canvasH));
         return;
     }
 
@@ -347,7 +394,7 @@ void Dashboard::resized()
         return;
     }
 
-    if (tab == WorkspaceTab::Improve)
+    if (tab == WorkspaceTab::Understand)
     {
         hideWorkspace();
         canvas_.setBounds({});
@@ -390,6 +437,19 @@ void Dashboard::resized()
     actions_.setBounds({});
     translation_.setBounds({});
     masking_.setBounds({});
+
+    if (state_.dawHost())
+    {
+        canvas_.setBounds({});
+        live_.setBounds(body.removeFromTop(juce::jmax(260, body.getHeight() / 2)));
+        body.removeFromTop(10);
+        arrangement_.setBounds(body);
+        waveform_.setBounds({});
+        identity_.setBounds({});
+        sonic_.setBounds({});
+        spectrum_.setBounds({});
+        return;
+    }
 
     canvas_.setBounds(body.removeFromBottom(canvasH));
     body.removeFromBottom(10);

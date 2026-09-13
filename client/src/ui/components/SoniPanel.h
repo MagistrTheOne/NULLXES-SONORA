@@ -2,6 +2,7 @@
 
 #include "state/AppState.h"
 #include "ui/components/ActionButton.h"
+#include "ui/components/SoniFace.h"
 
 #include <juce_gui_basics/juce_gui_basics.h>
 
@@ -30,6 +31,7 @@ private:
     void speakLatest();
 
     AppState& state_;
+    SoniFace face_;
     juce::TextEditor input_;
     ActionButton send_;
     ActionButton mute_;

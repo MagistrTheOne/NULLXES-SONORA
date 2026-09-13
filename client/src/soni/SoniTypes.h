@@ -28,6 +28,11 @@ struct Context
     bool vocalFight = false;
     bool clip = false;
     bool hasDrop = false;
+    bool live = false;
+    bool playing = false;
+    int bar = 0;
+    juce::String section;
+    float liveEnergy = 0.0f;
 };
 
 } // namespace sonora::soni

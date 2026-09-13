@@ -17,8 +17,9 @@ public:
 private:
     AppState& state_;
     juce::TextButton listen { "LISTEN" };
-    juce::TextButton improve { "IMPROVE" };
+    juce::TextButton understand { "UNDERSTAND" };
     juce::TextButton create { "CREATE" };
+    juce::TextButton soni { "SONI" };
 
     void bind(juce::TextButton& button, WorkspaceTab tab);
 };

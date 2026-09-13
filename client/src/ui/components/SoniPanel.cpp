@@ -11,6 +11,8 @@ namespace sonora
 SoniPanel::SoniPanel(AppState& state)
     : state_(state)
 {
+    face_.setMode(SoniFace::Mode::Chat);
+    addAndMakeVisible(face_);
     input_.setMultiLine(false);
     input_.setReturnKeyStartsNewLine(false);
     input_.setEscapeAndReturnKeysConsumed(true);
@@ -107,8 +109,10 @@ void SoniPanel::paint(juce::Graphics& g)
     auto dot = title.removeFromLeft(14).withSizeKeepingCentre(8, 8);
     g.setColour(colors::foreground().withAlpha(glow));
     g.fillEllipse(dot.toFloat());
-    Theme::drawMuted(g, header, "AI Assistant");
+    Theme::drawMuted(g, header, "AI Assistant  ·  producer, not helpdesk");
 
+    if (getHeight() > 420)
+        bounds.removeFromRight(128);
     bounds.removeFromBottom(44);
     bounds.removeFromBottom(8);
 
@@ -144,6 +148,10 @@ void SoniPanel::resized()
     auto header = bounds.removeFromTop(46);
     mute_.setBounds(header.removeFromRight(70).removeFromBottom(26));
     bounds.removeFromTop(6);
+    if (getHeight() > 420)
+        face_.setBounds(bounds.removeFromRight(120).removeFromTop(160));
+    else
+        face_.setBounds({});
     auto row = bounds.removeFromBottom(36);
     send_.setBounds(row.removeFromRight(72));
     row.removeFromRight(8);

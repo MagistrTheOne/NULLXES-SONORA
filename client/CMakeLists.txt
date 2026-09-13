@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.22)
 
-project(sonora-runtime VERSION 1.0.1 LANGUAGES CXX)
+project(sonora-runtime VERSION 1.0.2 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -71,6 +71,12 @@ set(SONORA_SHARED_SOURCES
     src/ui/components/LabOverlay.cpp
     src/ui/components/SoniPanel.h
     src/ui/components/SoniPanel.cpp
+    src/ui/components/SoniFace.h
+    src/ui/components/SoniFace.cpp
+    src/ui/components/SoniMeet.h
+    src/ui/components/SoniMeet.cpp
+    src/ui/components/LiveListenView.h
+    src/ui/components/LiveListenView.cpp
     src/ui/components/StatusRail.h
     src/ui/components/StatusRail.cpp
     src/ui/components/TopBar.h
@@ -127,8 +133,14 @@ juce_add_gui_app(SONORA
     PRODUCT_NAME "SONORA"
     COMPANY_NAME "NULLXES"
     BUNDLE_ID com.nullxes.sonora
-    VERSION 1.0.1
+    VERSION 1.0.2
     NEEDS_WEB_BROWSER FALSE
+)
+
+juce_add_binary_data(SoniAssets
+    HEADER_NAME SoniBinary.h
+    NAMESPACE SoniBinary
+    SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/assets/soni.jpg"
 )
 
 juce_generate_juce_header(SONORA)
@@ -155,7 +167,7 @@ target_compile_definitions(SONORA PRIVATE
     JUCE_APPLICATION_VERSION_STRING="$<TARGET_PROPERTY:SONORA,JUCE_VERSION>"
 )
 
-target_link_libraries(SONORA PRIVATE ${SONORA_JUCE_LIBS})
+target_link_libraries(SONORA PRIVATE ${SONORA_JUCE_LIBS} SoniAssets)
 if(WIN32)
     target_link_libraries(SONORA PRIVATE sapi ole32 oleaut32 uuid)
 endif()
@@ -167,7 +179,7 @@ juce_add_plugin(SONORA_VST3
     PLUGIN_MANUFACTURER_CODE Nlxs
     PLUGIN_CODE Sonr
     FORMATS VST3
-    VERSION 1.0.1
+    VERSION 1.0.2
     IS_SYNTH FALSE
     NEEDS_MIDI_INPUT FALSE
     NEEDS_MIDI_OUTPUT FALSE
@@ -205,12 +217,13 @@ target_compile_definitions(SONORA_VST3 PRIVATE
     SONORA_IS_PLUGIN=1
     _CRT_SECURE_NO_WARNINGS
     JUCE_APPLICATION_NAME_STRING="SONORA"
-    JUCE_APPLICATION_VERSION_STRING="1.0.1"
+    JUCE_APPLICATION_VERSION_STRING="1.0.2"
 )
 
 target_link_libraries(SONORA_VST3 PRIVATE
     ${SONORA_JUCE_LIBS}
     juce::juce_audio_processors
+    SoniAssets
 )
 if(WIN32)
     target_link_libraries(SONORA_VST3 PRIVATE sapi ole32 oleaut32 uuid)

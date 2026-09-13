@@ -11,6 +11,7 @@ PluginEditor::PluginEditor(PluginProcessor& processor)
     , dashboard_(state_)
 {
     EngineHost::get().installHooks();
+    EngineHost::get().setEar(&processor_);
     dashboard_.setCaptureSite([this] { return (void*) &processor_; });
 
     setOpaque(true);

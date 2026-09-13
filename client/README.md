@@ -30,4 +30,6 @@ client\build\SONORA_VST3_artefacts\Release\VST3\SONORA.vst3
 
 Ctrl+L opens SONORA LAB. It is a tool, not a chat.
 
+SONI is the premium voice + chat. She greets with character. Ctrl+J toggles her. Not a helpdesk.
+
 The VST does not analyze in the audio callback. One engine session is shared across plugin windows. LISTEN records only from the instance you armed.

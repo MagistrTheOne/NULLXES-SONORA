@@ -26,6 +26,7 @@ Dashboard::Dashboard(AppState& state)
     , dnaView_(state)
     , canvas_(state)
     , status_(state)
+    , soni_(state)
     , lab_(state)
 {
     setOpaque(true);
@@ -73,11 +74,13 @@ Dashboard::Dashboard(AppState& state)
     addAndMakeVisible(dnaView_);
     addAndMakeVisible(canvas_);
     addAndMakeVisible(status_);
+    addAndMakeVisible(soni_);
     addAndMakeVisible(lab_);
     lab_.setAlwaysOnTop(true);
 
     state_.addChangeListener(this);
     refreshFromState();
+    juce::MessageManager::callAsync([this] { state_.ensureSoniWelcome(); });
 }
 
 Dashboard::~Dashboard()
@@ -167,7 +170,8 @@ void Dashboard::refreshFromState()
     structure_.setVisible(create);
     dnaView_.setVisible(improve && advanced);
     canvas_.setVisible(listen || !complete);
-    createRail_.setVisible(!create);
+    createRail_.setVisible(!create && !state_.soniOpen());
+    soni_.setVisible(state_.soniOpen());
     lab_.setVisible(state_.labOpen());
 
     if (complete && state_.analysis())
@@ -177,7 +181,8 @@ void Dashboard::refreshFromState()
 
     resized();
     repaint();
-    grabKeyboardFocus();
+    if (!soni_.isEditing())
+        grabKeyboardFocus();
 }
 
 void Dashboard::paint(juce::Graphics& g)
@@ -200,17 +205,19 @@ void Dashboard::paint(juce::Graphics& g)
     {
         g.setColour(colors::muted());
         g.setFont(type::label(10.0f));
-        g.drawText("NULLXES", inner.removeFromTop(14), juce::Justification::centredLeft, true);
+        g.drawText("NULLXES SONORA V1.0.1", inner.removeFromTop(14), juce::Justification::centredLeft, true);
         inner.removeFromTop(8);
         g.setColour(colors::foreground());
         g.setFont(type::display(26.0f));
         g.drawText("SONORA", inner.removeFromTop(32), juce::Justification::centredLeft, true);
         inner.removeFromTop(4);
         Theme::drawMuted(g, inner.removeFromTop(16), "ADAPTIVE SOUND INTELLIGENCE");
-        inner.removeFromTop(18);
-        Theme::drawBody(g, inner.removeFromTop(20), "What do you have?");
-        Theme::drawBody(g, inner.removeFromTop(20), "What is wrong?");
-        Theme::drawBody(g, inner.removeFromTop(20), "What should we make?");
+        inner.removeFromTop(10);
+        Theme::drawMuted(g, inner.removeFromTop(14), "FREE VST3");
+        inner.removeFromTop(8);
+        Theme::drawBody(g, inner.removeFromTop(18), "Track analysis / structure / spectrum / mix diagnostics");
+        inner.removeFromTop(8);
+        Theme::drawBody(g, inner.removeFromTop(18), "Premium: SONI AI Assistant");
         inner.removeFromTop(16);
         g.setColour(colors::mutedForeground());
         g.setFont(type::body(13.0f));
@@ -253,7 +260,8 @@ void Dashboard::resized()
     const int statusH = 36;
     const int canvasH = 110;
     const int leftW = 210;
-    const int rightW = juce::jlimit(280, 340, juce::roundToInt((float) getWidth() * 0.22f));
+    const int rightW = juce::jlimit(state_.soniOpen() ? 320 : 280, 380,
+                                    juce::roundToInt((float) getWidth() * (state_.soniOpen() ? 0.24f : 0.22f)));
 
     status_.setBounds(0, getHeight() - statusH, getWidth(), statusH);
 
@@ -267,15 +275,24 @@ void Dashboard::resized()
     auto right = body.removeFromRight(rightW);
     body.removeFromRight(14);
 
-    health_.setBounds(right.removeFromTop(132));
+    health_.setBounds(right.removeFromTop(state_.soniOpen() ? 108 : 132));
     right.removeFromTop(10);
-    if (createRail_.isVisible())
+    if (state_.soniOpen())
     {
-        const int createH = juce::jlimit(180, 230, right.getHeight() / 2);
-        createRail_.setBounds(right.removeFromBottom(createH));
+        soni_.setBounds(right);
+        createRail_.setBounds({});
     }
     else
-        createRail_.setBounds({});
+    {
+        soni_.setBounds({});
+        if (createRail_.isVisible())
+        {
+            const int createH = juce::jlimit(180, 230, right.getHeight() / 2);
+            createRail_.setBounds(right.removeFromBottom(createH));
+        }
+        else
+            createRail_.setBounds({});
+    }
 
     const auto tab = state_.tab();
     const bool complete = state_.analysisState() == AnalysisState::Complete;

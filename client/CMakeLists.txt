@@ -35,6 +35,11 @@ set(SONORA_SHARED_SOURCES
     src/backend/Fault.h
     src/engine/Engine.h
     src/engine/Engine.cpp
+    src/soni/SoniTypes.h
+    src/soni/SoniBrain.h
+    src/soni/SoniBrain.cpp
+    src/soni/SoniVoice.h
+    src/soni/SoniVoice.cpp
     src/audio/AudioPlayer.h
     src/audio/AudioPlayer.cpp
     src/models/AudioAnalysis.h
@@ -64,6 +69,8 @@ set(SONORA_SHARED_SOURCES
     src/ui/components/ActionsPanel.cpp
     src/ui/components/LabOverlay.h
     src/ui/components/LabOverlay.cpp
+    src/ui/components/SoniPanel.h
+    src/ui/components/SoniPanel.cpp
     src/ui/components/StatusRail.h
     src/ui/components/StatusRail.cpp
     src/ui/components/TopBar.h
@@ -149,6 +156,9 @@ target_compile_definitions(SONORA PRIVATE
 )
 
 target_link_libraries(SONORA PRIVATE ${SONORA_JUCE_LIBS})
+if(WIN32)
+    target_link_libraries(SONORA PRIVATE sapi ole32 oleaut32 uuid)
+endif()
 
 juce_add_plugin(SONORA_VST3
     PRODUCT_NAME "SONORA"
@@ -202,3 +212,6 @@ target_link_libraries(SONORA_VST3 PRIVATE
     ${SONORA_JUCE_LIBS}
     juce::juce_audio_processors
 )
+if(WIN32)
+    target_link_libraries(SONORA_VST3 PRIVATE sapi ole32 oleaut32 uuid)
+endif()

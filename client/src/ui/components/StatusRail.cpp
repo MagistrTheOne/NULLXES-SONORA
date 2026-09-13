@@ -18,7 +18,7 @@ void StatusRail::paint(juce::Graphics& g)
     g.fillRect(0, 0, getWidth(), 1);
 
     auto bounds = getLocalBounds().reduced(20, 0);
-    const int cell = bounds.getWidth() / 3;
+    const int cell = bounds.getWidth() / 4;
 
     auto paintCell = [&](juce::Rectangle<int> area, const juce::String& k, const juce::String& v) {
         g.setColour(colors::mutedForeground());
@@ -40,7 +40,8 @@ void StatusRail::paint(juce::Graphics& g)
         result = state_.fault().reason.isEmpty() ? "FAILED" : state_.fault().reason;
 
     paintCell(bounds.removeFromLeft(cell), "COMPUTE", compute);
-    paintCell(bounds.removeFromLeft(cell), "SONORA", "v1.0.1");
+    paintCell(bounds.removeFromLeft(cell), "SONORA", "V1.0.1  FREE VST3");
+    paintCell(bounds.removeFromLeft(cell), "SONI", state_.soniOpen() ? "PREMIUM LIVE" : "PREMIUM");
     paintCell(bounds, "RESULT", result);
 }
 

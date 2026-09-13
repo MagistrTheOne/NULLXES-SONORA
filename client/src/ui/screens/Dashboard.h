@@ -16,6 +16,7 @@
 #include "ui/components/ProblemsView.h"
 #include "ui/components/ProjectCanvas.h"
 #include "ui/components/ReferencePage.h"
+#include "ui/components/SoniPanel.h"
 #include "ui/components/SonicIdentity.h"
 #include "ui/components/SpectrumView.h"
 #include "ui/components/StatusRail.h"
@@ -75,6 +76,7 @@ private:
     DnaView dnaView_;
     ProjectCanvas canvas_;
     StatusRail status_;
+    SoniPanel soni_;
     LabOverlay lab_;
     std::function<void*()> captureSite_;
     std::unique_ptr<juce::FileChooser> chooser_;

@@ -56,10 +56,10 @@ void CreatePage::exportMidi()
         "EXPORT MIDI",
         juce::File(),
         "*.mid");
-    constexpr auto flags = juce::FileBrowserComponent::saveMode
+    constexpr auto chooserFlags = juce::FileBrowserComponent::saveMode
                            | juce::FileBrowserComponent::canSelectFiles
                            | juce::FileBrowserComponent::warnAboutOverwriting;
-    chooser_->launchAsync(flags, [this](const juce::FileChooser& chooser) {
+    chooser_->launchAsync(chooserFlags, [this](const juce::FileChooser& chooser) {
         auto file = chooser.getResult();
         if (file.getFileName().isEmpty())
             return;
@@ -91,7 +91,7 @@ void CreatePage::paint(juce::Graphics& g)
                     ready ? state_.bpmLabel() + " BPM    " + state_.keyLabel() + "    " + state_.styleLabel()
                           : "Load a track first");
     bounds.removeFromTop(8);
-    Theme::drawMuted(g, bounds.removeFromTop(14), "SONORA writes objects. It does not chat.");
+    Theme::drawMuted(g, bounds.removeFromTop(14), "SONORA writes objects. SONI talks.");
     bounds.removeFromTop(120);
 
     if (state_.harmony())

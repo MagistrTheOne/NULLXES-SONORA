@@ -5,6 +5,7 @@
 #include "models/AudioAnalysis.h"
 #include "models/Insight.h"
 #include "models/Issue.h"
+#include "soni/SoniTypes.h"
 #include "ui/copy/HumanCopy.h"
 
 #include <juce_audio_basics/juce_audio_basics.h>
@@ -154,12 +155,25 @@ public:
     bool writeMidiFile(const juce::File& file, juce::String& error) const;
     void clearTrack();
 
+    bool soniOpen() const { return soniOpen_; }
+    bool soniMuted() const { return soniMuted_; }
+    bool soniWelcomed() const { return soniWelcomed_; }
+    const std::vector<soni::Message>& soniMessages() const { return soniMessages_; }
+    void openSoni();
+    void closeSoni();
+    void toggleSoni();
+    void setSoniMuted(bool muted);
+    void ensureSoniWelcome();
+    void sendSoniChat(const juce::String& text);
+    soni::Context soniContext() const;
+
 private:
     void notify();
     void runAsync(std::function<void()> work);
     void applyOnMessage(std::function<void()> fn);
     void resetGenerated();
     void applyResult(engine::Result result, const juce::String& name);
+    void pushSoni(const juce::String& text);
 
     std::unique_ptr<AudioPlayer> player_;
     std::function<void()> captureStart_;
@@ -192,6 +206,10 @@ private:
     UiMode uiMode_ { UiMode::Simple };
     bool labOpen_ = false;
     bool referenceOpen_ = false;
+    bool soniOpen_ = true;
+    bool soniMuted_ = false;
+    bool soniWelcomed_ = false;
+    std::vector<soni::Message> soniMessages_;
     void* captureToken_ = nullptr;
 
     JUCE_DECLARE_WEAK_REFERENCEABLE(AppState)

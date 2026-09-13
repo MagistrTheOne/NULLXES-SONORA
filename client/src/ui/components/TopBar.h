@@ -20,6 +20,7 @@ private:
     juce::TextButton improve { "IMPROVE" };
     juce::TextButton create { "CREATE" };
     juce::TextButton lab { "LAB" };
+    juce::TextButton soni { "SONI" };
     juce::TextButton advanced { "SIMPLE" };
 
     void bind(juce::TextButton& button, WorkspaceTab tab);

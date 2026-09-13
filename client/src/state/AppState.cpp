@@ -2,6 +2,7 @@
 
 #include "audio/AudioPlayer.h"
 #include "engine/Engine.h"
+#include "soni/SoniBrain.h"
 
 #include <thread>
 
@@ -400,6 +401,12 @@ bool AppState::handleKeyPress(const juce::KeyPress& key)
         armAssist();
         return true;
     }
+    if (key == juce::KeyPress('j', juce::ModifierKeys::ctrlModifier, 0)
+        || key == juce::KeyPress('J', juce::ModifierKeys::ctrlModifier, 0))
+    {
+        toggleSoni();
+        return true;
+    }
     if (key == juce::KeyPress::escapeKey && (labOpen_ || referenceOpen_))
     {
         closeLab();
@@ -490,6 +497,7 @@ void AppState::failListen(const juce::String& reason)
     analysisState_ = AnalysisState::Failed;
     analyzeProgress_ = 0.0f;
     fault_ = { "LISTEN FAILED", 0, reason };
+    pushSoni(soni::afterFail(reason));
     notify();
 }
 
@@ -499,6 +507,7 @@ void AppState::applyResult(engine::Result result, const juce::String& name)
     {
         analysisState_ = AnalysisState::Failed;
         fault_ = { "ANALYSIS FAILED", 0, result.error };
+        pushSoni(soni::afterFail(result.error));
         notify();
         return;
     }
@@ -516,6 +525,7 @@ void AppState::applyResult(engine::Result result, const juce::String& name)
     selectedNode_ = CanvasNode::Understand;
     tab_ = WorkspaceTab::Listen;
     fault_ = {};
+    pushSoni(soni::afterListen(soniContext()));
     notify();
 }
 
@@ -748,6 +758,94 @@ void AppState::createEqProfile()
         profile.frequencyHz = 120.0f;
     }
     eqProfile_ = profile;
+    notify();
+}
+
+soni::Context AppState::soniContext() const
+{
+    soni::Context ctx;
+    const auto now = juce::Time::getCurrentTime();
+    ctx.hour = now.getHours();
+    ctx.minute = now.getMinutes();
+#ifdef SONORA_IS_PLUGIN
+    ctx.plugin = true;
+#endif
+    ctx.hasTrack = hasTrack_ && (bool) analysis_;
+    ctx.analyzing = analysisState_ == AnalysisState::Analyzing || analysisState_ == AnalysisState::Loading;
+    ctx.filename = juce::String(loadedFilename_);
+    ctx.bpm = bpmLabel();
+    ctx.key = keyLabel();
+    ctx.style = styleLabel();
+    ctx.energy = energyLabel();
+    ctx.health = healthScore();
+    for (const auto& issue : issues_)
+    {
+        ctx.muddy = ctx.muddy || issue.type == "muddy_low_end";
+        ctx.vocalFight = ctx.vocalFight || issue.type == "frequency_conflict";
+        ctx.clip = ctx.clip || issue.type == "clipping";
+    }
+    if (const auto* model = dna())
+    {
+        for (const auto& section : model->sections)
+            if (section.name == "drop")
+                ctx.hasDrop = true;
+    }
+    return ctx;
+}
+
+void AppState::pushSoni(const juce::String& text)
+{
+    if (text.trim().isEmpty())
+        return;
+    soniMessages_.push_back({ true, text });
+    if (soniMessages_.size() > 40)
+        soniMessages_.erase(soniMessages_.begin(), soniMessages_.begin() + (int) soniMessages_.size() - 40);
+}
+
+void AppState::openSoni()
+{
+    soniOpen_ = true;
+    notify();
+}
+
+void AppState::closeSoni()
+{
+    soniOpen_ = false;
+    notify();
+}
+
+void AppState::toggleSoni()
+{
+    soniOpen_ = !soniOpen_;
+    if (soniOpen_)
+        ensureSoniWelcome();
+    notify();
+}
+
+void AppState::setSoniMuted(bool muted)
+{
+    soniMuted_ = muted;
+    notify();
+}
+
+void AppState::ensureSoniWelcome()
+{
+    soniOpen_ = true;
+    if (soniWelcomed_)
+        return;
+    soniWelcomed_ = true;
+    pushSoni(soni::greet(soniContext()));
+    notify();
+}
+
+void AppState::sendSoniChat(const juce::String& text)
+{
+    const auto line = text.trim();
+    if (line.isEmpty())
+        return;
+    soniOpen_ = true;
+    soniMessages_.push_back({ false, line });
+    pushSoni(soni::reply(soniContext(), line));
     notify();
 }
 
